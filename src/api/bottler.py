@@ -19,7 +19,19 @@ class PotionInventory(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     """ """
-    print(f"potions delievered: {potions_delivered} order_id: {order_id}")
+    with db.engine.begin() as connection:
+        for potion in potions_delivered:
+            sql = """
+            UPDATE inventory
+            SET quantity = quantity + potion.quantity
+            WHERE potion_type = potion.potion_type
+            """
+            connection.execute(sqlalchemy.text(sql), {
+                "quantity": potion.quantity,
+                "potion_type": potion.potion_type  
+            })
+
+    print(f"potions delivered: {potions_delivered} order_id: {order_id}")
 
     return "OK"
 
@@ -34,11 +46,30 @@ def get_bottle_plan():
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
     # Initial logic: bottle all barrels into red potions.
+    with db.engine.begin() as connection:
+        sql_check_inventory = """
+        SELECT quantity FROM inventory WHERE potion_type = '0,100,0,0'
+        """
+        result = connection.execute(sqlalchemy.text(sql_check_inventory))
+
+        green_inventory = 0
+        for row in result:
+            green_inventory = row['quantity']
+
+        if green_inventory < 10:
+            sql_purchase_barrel = """
+            UPDATE inventory
+            SET quantity = quantity + 1
+            WHERE potion_type = '0,100,0,0'
+            """
+            connection.execute(sqlalchemy.text(sql_purchase_barrel))
+            green_inventory += 1
+    
 
     return [
             {
                 "potion_type": [100, 0, 0, 0],
-                "quantity": 5,
+                "quantity": green_inventory
             }
         ]
 

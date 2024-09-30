@@ -23,17 +23,23 @@ class Barrel(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     """ """
-    # Updating gold & ml
-    with sqlalchemy.Engine.begin() as connection:
+    with db.engine.begin() as connection:
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
 
-    if(current_gold > barrels_delivered[0].price) :
-        with sqlalchemy.Engine.begin() as connection:
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold-{barrels_delivered[0]}"))
-        with sqlalchemy.Engine.begin() as connection:
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml-{barrels_delivered[0].quantity*500}"))
+    if current_gold > barrels_delivered[0].price:
+        with db.engine.begin() as connection:
+            connection.execute(sqlalchemy.text("""
+                UPDATE global_inventory
+                SET gold = gold - gold.price
+            """), {"price": barrels_delivered[0].price})
 
-    print(f"barrels delievered: {barrels_delivered} order_id: {order_id}")
+        with db.engine.begin() as connection:
+            connection.execute(sqlalchemy.text("""
+                UPDATE global_inventory
+                SET num_green_ml = num_green_ml + :ml
+            """), {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
+
+    print(f"barrels delivered: {barrels_delivered} order_id: {order_id}")
 
     return "OK"
 
@@ -45,7 +51,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
     return [
         {
-            "sku": "SMALL_RED_BARREL",
+            "sku": "SMALL_GREEN_BARREL",
             "quantity": 1,
         }
     ]
