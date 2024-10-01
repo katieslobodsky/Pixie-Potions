@@ -94,21 +94,47 @@ def create_cart(new_cart: Customer):
 class CartItem(BaseModel):
     quantity: int
 
-    #number of items in cart is less than the number of potions they're trying to buy
-
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
-
-    return "OK"
+    with db.engine.begin() as connection:
+        green_potion_inventory = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
+    
+    if green_potion_inventory >= cart_item.quantity and green_potion_inventory != 0:
+        return "OK"
+    
+    return f"Not enough potions in inventory to fulfill requested purchase: {cart_item.quantity} requested, {green_potion_inventory} available"
 
 
 class CartCheckout(BaseModel):
     payment: str
 
+
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
-    """ """
 
-    return {"total_potions_bought": 1, "total_gold_paid": 50}
+    with db.engine.begin() as connection:
+        current_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
+        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+
+    potion_cost = 50
+    requested_potions = 1
+
+    if current_green_potions == 0 or current_green_potions < requested_potions:
+        return {
+            "total_potions_bought": 0,
+            "total_gold_paid": 0
+        }
+
+    new_potion_count = current_green_potions - requested_potions
+    new_gold_amount = current_gold + (requested_potions * potion_cost)
+
+    with db.engine.begin() as connection:
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = :new_potion_count"), {"new_potion_count": new_potion_count}).scalar()
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :new_gold_amount"), {"new_gold_amount": new_gold_amount}).scalar()
+
+    return {
+        "total_potions_bought": requested_potions,
+        "total_gold_paid": requested_potions * potion_cost
+    }
