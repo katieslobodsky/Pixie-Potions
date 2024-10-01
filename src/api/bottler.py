@@ -62,12 +62,7 @@ def get_bottle_plan():
             }
         ]
     
-    return [
-        {
-            "potion_type": [],
-            "quantity": 0
-        }
-    ]
+    return []
 
 if __name__ == "__main__":
     print(get_bottle_plan())

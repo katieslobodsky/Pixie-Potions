@@ -122,10 +122,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     requested_potions = 1
 
     if current_green_potions == 0 or current_green_potions < requested_potions:
-        return {
-            "total_potions_bought": 0,
-            "total_gold_paid": 0
-        }
+        return []
 
     new_potion_count = current_green_potions - requested_potions
     new_gold_amount = current_gold + (requested_potions * potion_cost)
