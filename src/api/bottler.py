@@ -18,9 +18,6 @@ class PotionInventory(BaseModel):
 
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
-    """ """
-    #subtract 100ml from num_green_ml for each potion delivered 
-    #add quantity of green potions to num_green_potions
 
     with db.engine.begin() as connection:
         current_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
