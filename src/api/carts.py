@@ -94,6 +94,8 @@ def create_cart(new_cart: Customer):
 class CartItem(BaseModel):
     quantity: int
 
+    #number of items in cart is less than the number of potions they're trying to buy
+
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):

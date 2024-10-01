@@ -25,7 +25,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     with db.engine.begin() as connection:
         for potion in potions_delivered:
             sql_add_green = "UPDATE global_inventory SET num_green_potions = num_green_potions + :quantity"
-            connection.execute(sqlalchemy.text(sql_add_green), {"quantity": potions_delivered[0].quantity, "potion_type": potion.potion_type}).scalar()
+            connection.execute(sqlalchemy.text(sql_add_green), {"quantity": potions_delivered[0].quantity}).scalar()
 
             sql_subtract_ml = "UPDATE global_inventory SET num_green_ml = num_green_ml - :potions_delivered_ml"
             connection.execute(sqlalchemy.text(sql_subtract_ml), {"potions_delivered_ml": potions_delivered[0].quantity * 100}).scalar()
