@@ -64,7 +64,7 @@ def get_bottle_plan():
     
     return [
         {
-            "potion-type": [],
+            "potion_type": [],
         }
     ]
 
