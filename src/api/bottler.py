@@ -19,14 +19,21 @@ class PotionInventory(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     """ """
+    #subtract 100ml from num_green_ml for each potion delivered 
+    #add quantity of green potions to num_green_potions
+
     with db.engine.begin() as connection:
         for potion in potions_delivered:
-            sql = "UPDATE inventory SET quantity = quantity + potion.quantity WHERE potion_type = potion.potion_type"
-            connection.execute(sqlalchemy.text(sql), {"quantity": potion.quantity, "potion_type": potion.potion_type})
+            sql_add_green = "UPDATE global_inventory SET num_green_potions = num_green_potions + :quantity WHERE potion_type = :potion_type"
+            connection.execute(sqlalchemy.text(sql_add_green), {"quantity": potions_delivered[0].quantity, "potion_type": potion.potion_type}).scalar()
+
+            sql_subtract_ml = "UPDATE global_inventory SET num_green_ml = num_green_ml - :potions_delivered_ml WHERE potion_type = :potion_type"
+            connection.execute(sqlalchemy.text(sql_subtract_ml), {"potions_delivered_ml": potions_delivered[0].quantity * 100}).scalar()
 
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
 
     return "OK"
+
 
 @router.post("/plan")
 def get_bottle_plan():
@@ -39,26 +46,23 @@ def get_bottle_plan():
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
     # Initial logic: bottle all barrels into red potions.
+
     with db.engine.begin() as connection:
-        sql_check_inventory = "SELECT quantity FROM inventory WHERE potion_type = '0,100,0,0'"
-        result = connection.execute(sqlalchemy.text(sql_check_inventory))
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
 
-        green_inventory = 0
-        for row in result:
-            green_inventory = row['quantity']
-
-        if green_inventory < 10:
-            sql_purchase_barrel = "UPDATE inventory SET quantity = quantity + 1 WHERE potion_type = '0,100,0,0'"
-            connection.execute(sqlalchemy.text(sql_purchase_barrel))
-            green_inventory += 1
-    
-
-    return [
+    if current_green_ml >= 100 :
+        return [
             {
                 "potion_type": [0, 100, 0, 0],
-                "quantity": green_inventory,
+                "quantity": 1,
             }
         ]
+    
+    return [
+        {
+            "potion-type": [],
+        }
+    ]
 
 if __name__ == "__main__":
     print(get_bottle_plan())
