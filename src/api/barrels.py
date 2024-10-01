@@ -28,7 +28,6 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
     with db.engine.begin() as connection:
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        print(f"Current gold: {current_gold}")
 
         if current_gold < total_price:
             return {"Not enough gold."}
