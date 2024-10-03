@@ -25,6 +25,7 @@ class Barrel(BaseModel):
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
     total_price = barrels_delivered[0].price * barrels_delivered[0].quantity
+    print(f"total price = {total_price}")
 
     with db.engine.begin() as connection:
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
@@ -34,7 +35,8 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
         if current_gold >= total_price:
             connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_price}"))
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"), {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"), 
+            {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
 
     print(f"Barrels delivered: {barrels_delivered}, order_id: {order_id}")
     return "OK"
