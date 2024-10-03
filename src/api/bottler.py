@@ -20,16 +20,39 @@ class PotionInventory(BaseModel):
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
 
     with db.engine.begin() as connection:
-        current_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar()
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
         
-    if current_ml >= 100:
-        with db.engine.begin() as connection:
-            for potion in potions_delivered:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions + :quantity"), 
-                {"quantity": potions_delivered[0].quantity})
-
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - :potions_delivered_ml"), 
-                {"potions_delivered_ml": potions_delivered[0].quantity * 100})
+        for potion in potions_delivered:
+            ml_needed = potion.quantity * 100  
+            
+            if potion.potion_type == [0, 100, 0, 0]:  # Green potion
+                if current_green_ml >= ml_needed:
+                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions + :quantity"), 
+                                       {"quantity": potion.quantity})
+                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - :ml_used"), 
+                                       {"ml_used": ml_needed})
+                else:
+                    return {"Not enough green ml to deliver potions."}
+                
+            elif potion.potion_type == [100, 0, 0, 0]:  # Red potion
+                if current_red_ml >= ml_needed:
+                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions + :quantity"), 
+                                       {"quantity": potion.quantity})
+                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml - :ml_used"), 
+                                       {"ml_used": ml_needed})
+                else:
+                    return {"Not enough red ml to deliver potions."}
+                
+            elif potion.potion_type == [0, 0, 100, 0]:  # Blue potion
+                if current_blue_ml >= ml_needed:
+                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions + :quantity"), 
+                                       {"quantity": potion.quantity})
+                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml - :ml_used"), 
+                                       {"ml_used": ml_needed})
+                else:
+                    return {"Not enough blue ml to deliver potions."}
 
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
 
@@ -48,18 +71,34 @@ def get_bottle_plan():
 
     # Initial logic: bottle all barrels into red potions.
 
+    bottle_plan = []
+
     with db.engine.begin() as connection:
         current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar()
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
 
-    if current_green_ml >= 100 :
-        return [
-            {
-                "potion_type": [0, 100, 0, 0],
-                "quantity": 1
-            }
-        ]
-    
-    return []
+    if current_green_ml >= 100:
+        bottle_plan.append({
+            "potion_type": [0, 100, 0, 0],
+            "quantity": 1
+        })
+
+    if current_red_ml >= 100:
+        bottle_plan.append({
+            "potion_type": [100, 0, 0, 0],
+            "quantity": 1
+        })
+
+    if current_blue_ml >= 100:
+        bottle_plan.append({
+            "potion_type": [0, 0, 100, 0],
+            "quantity": 1
+        })
+
+    return bottle_plan
+
 
 if __name__ == "__main__":
     print(get_bottle_plan())
+
