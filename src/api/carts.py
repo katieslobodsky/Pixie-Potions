@@ -116,22 +116,21 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
 
+    potion_cost = 50
+    requested_potions = 1
+
     with db.engine.begin() as connection:
         current_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
 
-    potion_cost = 50
-    requested_potions = 1
+        if current_green_potions == 0 or current_green_potions < requested_potions:
+            return []
 
-    if current_green_potions == 0 or current_green_potions < requested_potions:
-        return []
+        new_potion_count = current_green_potions - requested_potions
+        new_gold_amount = current_gold + (requested_potions * potion_cost)
 
-    new_potion_count = current_green_potions - requested_potions
-    new_gold_amount = current_gold + (requested_potions * potion_cost)
-
-    with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = :new_potion_count"), {"new_potion_count": new_potion_count}).scalar()
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :new_gold_amount"), {"new_gold_amount": new_gold_amount}).scalar()
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = :new_potion_count"), {"new_potion_count": new_potion_count})
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :new_gold_amount"), {"new_gold_amount": new_gold_amount})
 
     return {
         "total_potions_bought": requested_potions,
