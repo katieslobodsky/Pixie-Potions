@@ -1,3 +1,6 @@
+import sqlalchemy
+from src import database as db
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
@@ -11,9 +14,20 @@ router = APIRouter(
 
 @router.get("/audit")
 def get_inventory():
-    """ """
-    
-    return {"number_of_potions": 0, "ml_in_barrels": 0, "gold": 0}
+  
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT num_green_potions + num_red_potions + num_blue_potions AS total_potions,
+                   num_green_ml + num_red_ml + num_blue_ml AS total_ml,
+                   gold
+            FROM global_inventory
+        """)).fetchone()
+
+        return {
+            "number_of_potions": result.total_potions,
+            "ml_in_barrels": result.total_ml,
+            "gold": result.gold
+        }
 
 # Gets called once a day
 @router.post("/plan")
