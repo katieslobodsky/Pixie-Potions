@@ -99,7 +99,7 @@ def create_cart(new_cart: Customer):
 
     carts[cart_id] = {
         "customer": new_cart.customer_name,
-        "items": []  # Start with an empty list of items
+        "items": []  
     }
 
     return {"cart_id": cart_id, "message": f"Cart created for {new_cart.customer_name}"}
@@ -111,7 +111,7 @@ class CartItem(BaseModel):
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
-    """ """
+
     global carts  
 
     if cart_id not in carts:
@@ -134,7 +134,6 @@ class CartCheckout(BaseModel):
 
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
-
     global carts 
 
     if cart_id not in carts:
@@ -142,14 +141,21 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
     total_cost = 0
     with db.engine.begin() as connection:
-        current_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
-        current_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).scalar()
-        current_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).scalar()
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+        inventory = connection.execute(sqlalchemy.text("""
+            SELECT num_green_potions, num_red_potions, num_blue_potions, gold 
+            FROM global_inventory
+        """)).fetchone()
+
+        current_green_potions = inventory.num_green_potions
+        current_red_potions = inventory.num_red_potions
+        current_blue_potions = inventory.num_blue_potions
+        current_gold = inventory.gold
 
         for item in carts[cart_id]["items"]:
             potion_sku = item["potion_sku"]
             potion_quantity = item["quantity"]
+
+            potion_cost = 0  
 
             if potion_sku == "RED_POTION_0":
                 potion_cost = 50
@@ -166,7 +172,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             elif potion_sku == "BLUE_POTION_0":
                 potion_cost = 100
                 if current_blue_potions < potion_quantity:
-                    return {"error": f"Not enough blue potions in stock: {potion_quantity} requested, {current_blue_potions} available"}
+                    return {"error": f"Not enough blue potions in stock"}
                 current_blue_potions -= potion_quantity  
 
             total_cost += potion_quantity * potion_cost
@@ -185,7 +191,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             "new_red_potions": current_red_potions,
             "new_blue_potions": current_blue_potions
         })
-        
+
     carts.pop(cart_id)
 
     return {

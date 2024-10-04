@@ -24,23 +24,21 @@ class Barrel(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
-    total_price = barrels_delivered[0].price
-
     with db.engine.begin() as connection:
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
 
-        if current_gold < total_price:
+        if current_gold < barrels_delivered[0].price:
             return {"Not enough gold."}
         
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_price}"))
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {barrels_delivered[0].price}"))
 
-        if barrels_delivered[0].potion_type == [0, 1, 0, 0]:
+        if barrels_delivered[0].potion_type == [0, 100, 0, 0]:
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"), 
                                    {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
-        elif barrels_delivered[0].potion_type == [1, 0, 0, 0]:
+        elif barrels_delivered[0].potion_type == [100, 0, 0, 0]:
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + :ml"), 
                                    {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
-        elif barrels_delivered[0].potion_type == [0, 0, 1, 0]:
+        elif barrels_delivered[0].potion_type == [0, 0, 100, 0]:
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + :ml"), 
                                    {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
     print(f"Barrels delivered: {barrels_delivered}, order_id: {order_id}")
