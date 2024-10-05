@@ -32,13 +32,13 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {barrels_delivered[0].price}"))
 
-        if barrels_delivered[0].potion_type == [0, 100, 0, 0]:
+        if "green" in barrels_delivered[0].sku.lower():
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"), 
                                    {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
-        elif barrels_delivered[0].potion_type == [100, 0, 0, 0]:
+        elif "red" in barrels_delivered[0].sku.lower():
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + :ml"), 
                                    {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
-        elif barrels_delivered[0].potion_type == [0, 0, 100, 0]:
+        elif "blue" in barrels_delivered[0].sku.lower():
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + :ml"), 
                                    {"ml": barrels_delivered[0].quantity * barrels_delivered[0].ml_per_barrel})
     print(f"Barrels delivered: {barrels_delivered}, order_id: {order_id}")

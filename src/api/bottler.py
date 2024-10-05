@@ -25,7 +25,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
         current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
         
         for potion in potions_delivered:
-            ml_needed = potion.quantity * 100                 
+            ml_needed = potion.quantity * 100                
             if potion.potion_type == [100, 0, 0, 0]:  #Red potion
                 if current_red_ml >= ml_needed:
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity}"))
