@@ -26,26 +26,20 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
         
         for potion in potions_delivered:
             ml_needed = potion.quantity * 100                
-            if potion.potion_type == [1, 0, 0, 0]:  #Red potion
+            if potion.potion_type == [100, 0, 0, 0]:  #Red potion
                 if current_red_ml >= ml_needed:
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity}"))
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {ml_needed}"))
-                else:
-                    return {"Not enough red ml to deliver potions."}
             
-            elif potion.potion_type == [0, 1, 0, 0]:  #Green potion
+            elif potion.potion_type == [0, 100, 0, 0]:  #Green potion
                 if current_green_ml >= ml_needed:
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions + {potion.quantity}"))
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml - {ml_needed}"))
-                else:
-                    return {"Not enough green ml to deliver potions."}
                 
-            elif potion.potion_type == [0, 0, 1, 0]:  #Blue potion
+            elif potion.potion_type == [0, 0, 100, 0]:  #Blue potion
                 if current_blue_ml >= ml_needed:
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_potions = num_blue_potions + {potion.quantity}"))
                     connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_ml = num_blue_ml - {ml_needed}"))
-                else:
-                    return {"Not enough blue ml to deliver potions."}
 
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
 
@@ -71,29 +65,29 @@ def get_bottle_plan():
         current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar()
         current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
 
-    quantity_green = current_green_ml/100
-    quantity_red = current_red_ml/100
-    quantity_blue = current_blue_ml/100
+        quantity_green = current_green_ml/100
+        quantity_red = current_red_ml/100
+        quantity_blue = current_blue_ml/100
 
-    if current_red_ml >= 100:
-        bottle_plan.append({
-            "potion_type": [100, 0, 0, 0],
-            "quantity": quantity_red
-        })
+        if current_red_ml >= 100:
+            bottle_plan.append({
+                "potion_type": [100, 0, 0, 0],
+                "quantity": quantity_red
+            })
 
-    if current_green_ml >= 100:
-        bottle_plan.append({
-            "potion_type": [0, 100, 0, 0],
-            "quantity": quantity_green
-        })
+        if current_green_ml >= 100:
+            bottle_plan.append({
+                "potion_type": [0, 100, 0, 0],
+                "quantity": quantity_green
+            })
 
-    if current_blue_ml >= 100:
-        bottle_plan.append({
-            "potion_type": [0, 0, 100, 0],
-            "quantity": quantity_blue
-        })
+        if current_blue_ml >= 100:
+            bottle_plan.append({
+                "potion_type": [0, 0, 100, 0],
+                "quantity": quantity_blue
+            })
 
-    return bottle_plan
+        return bottle_plan
 
 
 if __name__ == "__main__":
