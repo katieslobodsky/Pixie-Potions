@@ -28,14 +28,17 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
         for barrel in barrels_delivered:
             total_barrel_cost = barrel.price * barrel.quantity
-
+            
+            print(f"Processing barrel {barrel.sku} with price {barrel.price} and quantity {barrel.quantity}")
+            print(f"Total cost for this barrel: {total_barrel_cost}, Available gold: {current_gold}")
+            
             if current_gold >= total_barrel_cost:
                 current_gold -= total_barrel_cost 
                 
                 if barrel.potion_type == [1, 0, 0, 0]:  
                     connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + :ml"),
                                        {"ml": barrel.quantity * barrel.ml_per_barrel})
-                elif barrel.potion_type == [0, 1, 0, 0]: 
+                elif barrel.potion_type == [0, 1, 0, 0]:  
                     connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"),
                                        {"ml": barrel.quantity * barrel.ml_per_barrel})
                 elif barrel.potion_type == [0, 0, 1, 0]: 
