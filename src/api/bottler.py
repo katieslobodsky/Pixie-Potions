@@ -71,9 +71,9 @@ def get_bottle_plan():
         current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar()
         current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
 
-        quantity_green = current_green_ml/100
-        quantity_red = current_red_ml/100
-        quantity_blue = current_blue_ml/100
+        quantity_green = int(current_green_ml/100)
+        quantity_red = int(current_red_ml/100)
+        quantity_blue = int(current_blue_ml/100)
 
         if current_red_ml >= 100:
             bottle_plan.append({
