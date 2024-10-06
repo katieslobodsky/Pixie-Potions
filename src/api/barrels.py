@@ -29,9 +29,6 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         for barrel in barrels_delivered:
             total_barrel_cost = barrel.price * barrel.quantity
             
-            print(f"Processing barrel {barrel.sku} with price {barrel.price} and quantity {barrel.quantity}")
-            print(f"Total cost for this barrel: {total_barrel_cost}, Available gold: {current_gold}")
-            
             if current_gold >= total_barrel_cost:
                 current_gold -= total_barrel_cost 
                 
@@ -48,8 +45,6 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                 connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :gold"), {"gold": current_gold})
 
                 print(f"Purchased {barrel.quantity} of {barrel.sku}. Remaining gold: {current_gold}")
-            else:
-                print(f"Not enough gold to purchase {barrel.sku}. Needed: {total_barrel_cost}, Available: {current_gold}")
 
     print(f"Barrels delivered: {barrels_delivered}, order_id: {order_id}")
     return "OK"
@@ -85,7 +80,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                         "sku": barrel.sku,
                         "quantity": barrel.quantity,
                     })
-
     print(wholesale_catalog)
 
     return purchase_plan

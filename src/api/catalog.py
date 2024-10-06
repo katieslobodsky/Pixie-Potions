@@ -39,7 +39,7 @@ def get_catalog():
             }
         ]
     
-    if num_green_potions > 0:
+    if num_blue_potions > 0:
         return [
             {
                 "sku": "BLUE_POTION_0",
