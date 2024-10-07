@@ -25,9 +25,11 @@ class Barrel(BaseModel):
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     with db.engine.begin() as connection:
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
+        print(f"current gold: {current_gold}")
 
         for barrel in barrels_delivered:
             total_barrel_cost = barrel.price * barrel.quantity
+            print(f"total barrel cost: {total_barrel_cost}")
             
             if current_gold >= total_barrel_cost:
                 current_gold -= total_barrel_cost 
@@ -54,32 +56,36 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
+    # make sure you can afford the barrels
+
     purchase_plan = []
 
     with db.engine.begin() as connection:
         current_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).scalar()
         current_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar()
         current_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).scalar()
+        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
 
         for barrel in wholesale_catalog:
-            if barrel.potion_type == [1, 0, 0, 0]:
-                if current_red_potions < 10:
-                    purchase_plan.append({
-                        "sku": barrel.sku,
-                        "quantity": barrel.quantity,
-                    })
-            if barrel.potion_type == [0, 1, 0, 0]:
-                if current_green_potions < 10:
-                    purchase_plan.append({
-                        "sku": barrel.sku,
-                        "quantity": barrel.quantity,
-                    })
-            if barrel.potion_type == [0, 0, 1, 0]:
-                if current_blue_potions < 10:
-                    purchase_plan.append({
-                        "sku": barrel.sku,
-                        "quantity": barrel.quantity,
-                    })
+            if(current_gold > barrel.price * barrel.quantity):
+                if barrel.potion_type == [1, 0, 0, 0]:
+                    if current_red_potions < 10:
+                        purchase_plan.append({
+                            "sku": barrel.sku,
+                            "quantity": barrel.quantity,
+                        })
+                elif barrel.potion_type == [0, 1, 0, 0]:
+                    if current_green_potions < 10:
+                        purchase_plan.append({
+                            "sku": barrel.sku,
+                            "quantity": barrel.quantity,
+                        })
+                elif barrel.potion_type == [0, 0, 1, 0]:
+                    if current_blue_potions < 10:
+                        purchase_plan.append({
+                            "sku": barrel.sku,
+                            "quantity": barrel.quantity,
+                        })
     print(wholesale_catalog)
 
     return purchase_plan
