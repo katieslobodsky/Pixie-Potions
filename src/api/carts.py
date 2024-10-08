@@ -25,6 +25,7 @@ class search_sort_order(str, Enum):
     asc = "asc"
     desc = "desc"   
 
+
 @router.get("/search/", tags=["search"])
 def search_orders(
     customer_name: str = "",
@@ -77,6 +78,7 @@ class Customer(BaseModel):
     customer_name: str
     character_class: str
     level: int
+
 
 @router.post("/visits/{visit_id}")
 def post_visits(visit_id: int, customers: list[Customer]):

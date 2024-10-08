@@ -20,7 +20,6 @@ class Barrel(BaseModel):
 
     quantity: int
 
-
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     with db.engine.begin() as connection:
@@ -51,12 +50,9 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     print(f"Barrels delivered: {barrels_delivered}, order_id: {order_id}")
     return "OK"
 
-
 # Gets called once a day
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
-
-    # make sure you can afford the barrels
 
     purchase_plan = []
 

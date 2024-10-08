@@ -75,9 +75,6 @@ def deliver_capacity_plan(capacity_purchase : CapacityPurchase, order_id: int):
         if current_gold < total_cost:
             return {"Not enough gold to purchase capacity."}
 
-        connection.execute(sqlalchemy.text("""
-            UPDATE global_inventory 
-            SET gold = gold - :cost
-        """), {"cost": total_cost})
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_cost}"))
 
     return "OK"
