@@ -117,7 +117,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     global carts  
 
     if cart_id not in carts:
-        return {"Cart not found"}  
+        return {"error": "Cart not found"}  
 
     carts[cart_id]["items"].append({
         "potion_sku": item_sku,
@@ -146,6 +146,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         inventory = connection.execute(sqlalchemy.text("""
             SELECT num_green_potions, num_red_potions, num_blue_potions, gold 
             FROM global_inventory
+            FOR UPDATE
         """)).fetchone()
 
         current_green_potions = inventory.num_green_potions
@@ -181,18 +182,13 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
         new_gold_amount = current_gold + total_cost
 
-        connection.execute(sqlalchemy.text("""
+        connection.execute(sqlalchemy.text(f"""
             UPDATE global_inventory 
-            SET gold = :new_gold_amount, 
-                num_green_potions = :new_green_potions, 
-                num_red_potions = :new_red_potions, 
-                num_blue_potions = :new_blue_potions
-        """), {
-            "new_gold_amount": new_gold_amount,
-            "new_green_potions": current_green_potions,
-            "new_red_potions": current_red_potions,
-            "new_blue_potions": current_blue_potions
-        })
+            SET gold = {new_gold_amount}, 
+                num_green_potions = {current_green_potions}, 
+                num_red_potions = {current_red_potions}, 
+                num_blue_potions = {current_blue_potions}
+        """))
 
     carts.pop(cart_id)
 

@@ -23,6 +23,7 @@ class Barrel(BaseModel):
 
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
+
     with db.engine.begin() as connection:
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
         print(f"current gold: {current_gold}")
@@ -64,11 +65,8 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         current_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).scalar()
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
 
-        print(f"Starting gold: {current_gold}")
-
         for barrel in wholesale_catalog:
             total_cost = barrel.price * barrel.quantity
-            print(f"Evaluating {barrel.sku} for {total_cost} gold")
 
             if current_gold >= total_cost:
                 if barrel.potion_type == [1, 0, 0, 0]:
@@ -100,7 +98,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             else:
                 print(f"Not enough gold for {barrel.sku}, required: {total_cost}, available: {current_gold}")
 
-    print(f"Final wholesale catalog: {wholesale_catalog}")
+    print(wholesale_catalog)
     return purchase_plan
 
 
