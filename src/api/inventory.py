@@ -33,10 +33,9 @@ def get_inventory():
 @router.post("/plan")
 def get_capacity_plan():
     """ 
-    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion. Each additional 
+    Start with 1 capacity for 50 potions and 1 capacity for 10,000 ml of potion. Each additional 
     capacity unit costs 1000 gold.
     """
-
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text("""
             SELECT num_green_potions, num_red_potions, num_blue_potions,
@@ -47,13 +46,14 @@ def get_capacity_plan():
         total_potions = result.num_green_potions + result.num_red_potions + result.num_blue_potions
         total_ml = result.num_green_ml + result.num_red_ml + result.num_blue_ml
 
-        potion_capacity = total_potions // 50
-        ml_capacity = total_ml // 10000
+        potion_capacity = max(1, total_potions // 50)
+        ml_capacity = max(1, total_ml // 10000)
 
     return {
         "potion_capacity": potion_capacity,
         "ml_capacity": ml_capacity
     }
+
 
 class CapacityPurchase(BaseModel):
     potion_capacity: int
