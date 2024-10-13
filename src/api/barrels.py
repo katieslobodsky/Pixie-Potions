@@ -23,32 +23,56 @@ class Barrel(BaseModel):
 
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
-
     with db.engine.begin() as connection:
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar()
-        print(f"current gold: {current_gold}")
+        current_gold = connection.execute(
+            sqlalchemy.text("SELECT gold FROM global_inventory FOR UPDATE")
+        ).scalar()
+        print(f"current gold before purchase: {current_gold}")
 
         for barrel in barrels_delivered:
             total_barrel_cost = barrel.price * barrel.quantity
             print(f"total barrel cost: {total_barrel_cost}")
-            
+
             if current_gold >= total_barrel_cost:
-                current_gold -= total_barrel_cost 
-                
-                if barrel.potion_type == [1, 0, 0, 0]:  
-                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + :ml"),
-                                       {"ml": barrel.quantity * barrel.ml_per_barrel})
-                elif barrel.potion_type == [0, 1, 0, 0]:  
-                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"),
-                                       {"ml": barrel.quantity * barrel.ml_per_barrel})
-                elif barrel.potion_type == [0, 0, 1, 0]: 
-                    connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + :ml"),
-                                       {"ml": barrel.quantity * barrel.ml_per_barrel})
-                
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :gold"), {"gold": current_gold})
+                current_gold -= total_barrel_cost
 
-                print(f"Purchased {barrel.quantity} of {barrel.sku}. Remaining gold: {current_gold}")
+                # Update the inventory for the corresponding potion type
+                if barrel.potion_type == [1, 0, 0, 0]:  # Red potion
+                    connection.execute(
+                        sqlalchemy.text(
+                            "UPDATE global_inventory SET num_red_ml = num_red_ml + :ml"
+                        ),
+                        {"ml": barrel.quantity * barrel.ml_per_barrel},
+                    )
+                elif barrel.potion_type == [0, 1, 0, 0]:  # Green potion
+                    connection.execute(
+                        sqlalchemy.text(
+                            "UPDATE global_inventory SET num_green_ml = num_green_ml + :ml"
+                        ),
+                        {"ml": barrel.quantity * barrel.ml_per_barrel},
+                    )
+                elif barrel.potion_type == [0, 0, 1, 0]:  # Blue potion
+                    connection.execute(
+                        sqlalchemy.text(
+                            "UPDATE global_inventory SET num_blue_ml = num_blue_ml + :ml"
+                        ),
+                        {"ml": barrel.quantity * barrel.ml_per_barrel},
+                    )
 
+                # Update the gold amount in the database
+                connection.execute(
+                    sqlalchemy.text("UPDATE global_inventory SET gold = :gold"),
+                    {"gold": current_gold},
+                )
+
+                print(
+                    f"Purchased {barrel.quantity} of {barrel.sku}. Remaining gold: {current_gold}"
+                )
+            else:
+                print(
+                    f"Not enough gold for {barrel.sku}. Needed: {total_barrel_cost}, available: {current_gold}"
+                )
+    
     print(f"Barrels delivered: {barrels_delivered}, order_id: {order_id}")
     return "OK"
 
