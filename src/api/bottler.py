@@ -20,9 +20,9 @@ class PotionInventory(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     with db.engine.begin() as connection:
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar()
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM ml")).scalar()
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM ml")).scalar()
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM ml")).scalar()
 
         print(f"Green ml: {current_green_ml}, Red ml: {current_red_ml}, Blue ml: {current_blue_ml}")
 
@@ -33,11 +33,11 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             if potion.potion_type == [100, 0, 0, 0]:  
                 if current_red_ml >= ml_needed:
                     connection.execute(
-                        sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions + :quantity"),
+                        sqlalchemy.text("UPDATE ml SET num_red_potions = num_red_potions + :quantity"),
                         {"quantity": potion.quantity}
                     )
                     connection.execute(
-                        sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml - :ml_needed"),
+                        sqlalchemy.text("UPDATE ml SET num_red_ml = num_red_ml - :ml_needed"),
                         {"ml_needed": ml_needed}
                     )
                 else:
@@ -46,11 +46,11 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             elif potion.potion_type == [0, 100, 0, 0]:  
                 if current_green_ml >= ml_needed:
                     connection.execute(
-                        sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions + :quantity"),
+                        sqlalchemy.text("UPDATE ml SET num_green_potions = num_green_potions + :quantity"),
                         {"quantity": potion.quantity}
                     )
                     connection.execute(
-                        sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - :ml_needed"),
+                        sqlalchemy.text("UPDATE ml SET num_green_ml = num_green_ml - :ml_needed"),
                         {"ml_needed": ml_needed}
                     )
                 else:
@@ -59,11 +59,11 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             elif potion.potion_type == [0, 0, 100, 0]: 
                 if current_blue_ml >= ml_needed:
                     connection.execute(
-                        sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions + :quantity"),
+                        sqlalchemy.text("UPDATE ml SET num_blue_potions = num_blue_potions + :quantity"),
                         {"quantity": potion.quantity}
                     )
                     connection.execute(
-                        sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml - :ml_needed"),
+                        sqlalchemy.text("UPDATE ml SET num_blue_ml = num_blue_ml - :ml_needed"),
                         {"ml_needed": ml_needed}
                     )
                 else:
@@ -78,9 +78,9 @@ def get_bottle_plan():
     bottle_plan = []
 
     with db.engine.begin() as connection:
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar()
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar()
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar()
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM ml")).scalar()
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM ml")).scalar()
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM ml")).scalar()
 
         print(f"Current Green ML: {current_green_ml}, Red ML: {current_red_ml}, Blue ML: {current_blue_ml}")
 

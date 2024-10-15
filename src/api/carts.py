@@ -165,16 +165,12 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             return {"error": "Cart has already been checked out"}
 
         # Select current inventory levels and gold
-        inventory = connection.execute(sqlalchemy.text("""
-            SELECT num_green_potions, num_red_potions, num_blue_potions, gold 
-            FROM global_inventory
-            FOR UPDATE
-        """)).fetchone()
+        inventory = connection.execute(sqlalchemy.text("SELECT num_green_potions, num_red_potions, num_blue_potions FROM potions")).fetchone()
+        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
 
         current_green_potions = inventory.num_green_potions
         current_red_potions = inventory.num_red_potions
         current_blue_potions = inventory.num_blue_potions
-        current_gold = inventory.gold
 
         # Select cart items
         cart_items = connection.execute(sqlalchemy.text("""
@@ -232,16 +228,23 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             })
 
         new_gold_amount = current_gold + total_cost
+        print(f"new gold amount = {new_gold_amount}")
 
-        # Update gold, green potions, red potions, and blue potions in global_inventory 
+        # Insert a new row into gold_transactions
+        connection.execute(
+            sqlalchemy.text(
+                "INSERT INTO gold_transactions (gold) VALUES (:gold)"
+            ),
+            {"gold": new_gold_amount},
+        )
+
+        # Update green potions, red potions, and blue potions in global_inventory 
         connection.execute(sqlalchemy.text("""
-            UPDATE global_inventory
-            SET gold = :new_gold, 
-                num_green_potions = :new_green, 
+            UPDATE potions
+            SET num_green_potions = :new_green, 
                 num_red_potions = :new_red, 
                 num_blue_potions = :new_blue
         """), {
-            "new_gold": new_gold_amount,
             "new_green": current_green_potions,
             "new_red": current_red_potions,
             "new_blue": current_blue_potions
