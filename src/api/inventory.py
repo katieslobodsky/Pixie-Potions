@@ -21,10 +21,15 @@ def get_inventory():
                    (SELECT COALESCE(SUM(num_green_ml + num_red_ml + num_blue_ml), 0) FROM ml) AS total_ml
         """)).fetchone()
 
+
         # Get the most recent gold amount from the gold_transactions table
         gold_result = connection.execute(sqlalchemy.text("""
             SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1
         """)).scalar()
+
+        print(f"total potions: {result.total_potions}")
+        print(f"ml in barrels: {result.total_ml}")
+        print(f"gold: {gold_result}")
 
         return {
             "number_of_potions": result.total_potions,
@@ -49,6 +54,13 @@ def get_capacity_plan():
                    (SELECT COALESCE(SUM(num_red_ml), 0) FROM ml) AS num_red_ml,
                    (SELECT COALESCE(SUM(num_blue_ml), 0) FROM ml) AS num_blue_ml
         """)).fetchone()
+
+        print(f"num red potions: {result.num_red_potions}")
+        print(f"num green potions: {result.num_green_potions}")
+        print(f"num blue potions: {result.num_blue_potions}")
+        print(f"num red ml: {result.num_red_ml}")
+        print(f"num green ml: {result.num_green_ml}")
+        print(f"num blue ml: {result.num_blue_ml}")
 
         total_potions = result.num_green_potions + result.num_red_potions + result.num_blue_potions
         total_ml = result.num_green_ml + result.num_red_ml + result.num_blue_ml
@@ -79,6 +91,7 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
         """)).scalar()
 
         total_cost = (capacity_purchase.potion_capacity + capacity_purchase.ml_capacity) * 1000
+        print(f"total cost: {total_cost}")
 
         if current_gold < total_cost:
             return {"error": "Not enough gold to purchase capacity."}

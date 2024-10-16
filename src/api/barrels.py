@@ -66,7 +66,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                         "INSERT INTO gold_transactions (gold) VALUES (:gold)"
                     ),
                     {"gold": current_gold},
-                )
+                )      
 
                 print(
                     f"Purchased {barrel.quantity} of {barrel.sku}. Remaining gold: {current_gold}"
@@ -86,7 +86,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     purchase_plan = []
 
     with db.engine.begin() as connection:
-        # Fetch current inventory and gold information
+        # Get current inventory and gold info
         current_red_potions = connection.execute(
             sqlalchemy.text("SELECT num_red_potions FROM potions")
         ).scalar()
