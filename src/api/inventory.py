@@ -14,33 +14,40 @@ router = APIRouter(
 
 @router.get("/audit")
 def get_inventory():
-  
     with db.engine.begin() as connection:
+        # Get total potions and ml from the potions and ml tables
         result = connection.execute(sqlalchemy.text("""
-            SELECT num_green_potions + num_red_potions + num_blue_potions AS total_potions,
-                   num_green_ml + num_red_ml + num_blue_ml AS total_ml,
-                   gold
-            FROM global_inventory
+            SELECT (SELECT COALESCE(SUM(num_green_potions + num_red_potions + num_blue_potions), 0) FROM potions) AS total_potions,
+                   (SELECT COALESCE(SUM(num_green_ml + num_red_ml + num_blue_ml), 0) FROM ml) AS total_ml
         """)).fetchone()
+
+        # Get the most recent gold amount from the gold_transactions table
+        gold_result = connection.execute(sqlalchemy.text("""
+            SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1
+        """)).scalar()
 
         return {
             "number_of_potions": result.total_potions,
             "ml_in_barrels": result.total_ml,
-            "gold": result.gold
+            "gold": gold_result
         }
+
 
 # Gets called once a day
 @router.post("/plan")
 def get_capacity_plan():
     """ 
-    Start with 1 capacity for 50 potions and 1 capacity for 10,000 ml of potion. Each additional 
-    capacity unit costs 1000 gold.
+    Calculate the capacity for potions and ml based on the current inventory levels.
     """
     with db.engine.begin() as connection:
+        # Get the total number of potions and ml from the potions and ml tables
         result = connection.execute(sqlalchemy.text("""
-            SELECT num_green_potions, num_red_potions, num_blue_potions,
-                   num_green_ml, num_red_ml, num_blue_ml
-            FROM global_inventory
+            SELECT (SELECT COALESCE(SUM(num_green_potions), 0) FROM potions) AS num_green_potions,
+                   (SELECT COALESCE(SUM(num_red_potions), 0) FROM potions) AS num_red_potions,
+                   (SELECT COALESCE(SUM(num_blue_potions), 0) FROM potions) AS num_blue_potions,
+                   (SELECT COALESCE(SUM(num_green_ml), 0) FROM ml) AS num_green_ml,
+                   (SELECT COALESCE(SUM(num_red_ml), 0) FROM ml) AS num_red_ml,
+                   (SELECT COALESCE(SUM(num_blue_ml), 0) FROM ml) AS num_blue_ml
         """)).fetchone()
 
         total_potions = result.num_green_potions + result.num_red_potions + result.num_blue_potions
@@ -61,20 +68,25 @@ class CapacityPurchase(BaseModel):
 
 # Gets called once a day
 @router.post("/deliver/{order_id}")
-def deliver_capacity_plan(capacity_purchase : CapacityPurchase, order_id: int):
+def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
     """ 
-    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion. Each additional 
-    capacity unit costs 1000 gold.
+    Purchase additional capacity for potions and ml if there is enough gold.
     """
-
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).fetchone()
-        current_gold = result.gold
+        # Get the most recent gold amount from the gold_transactions table
+        current_gold = connection.execute(sqlalchemy.text("""
+            SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1
+        """)).scalar()
+
         total_cost = (capacity_purchase.potion_capacity + capacity_purchase.ml_capacity) * 1000
 
         if current_gold < total_cost:
-            return {"Not enough gold to purchase capacity."}
+            return {"error": "Not enough gold to purchase capacity."}
 
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_cost}"))
+        # Update the gold by inserting a new transaction reflecting the gold spent
+        new_gold_balance = current_gold - total_cost
+        connection.execute(sqlalchemy.text("""
+            INSERT INTO gold_transactions (gold) VALUES (:new_gold)
+        """), {"new_gold": new_gold_balance})
 
     return "OK"
