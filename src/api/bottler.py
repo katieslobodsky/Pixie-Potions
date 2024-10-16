@@ -33,7 +33,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             if potion.potion_type == [100, 0, 0, 0]:  
                 if current_red_ml >= ml_needed:
                     connection.execute(
-                        sqlalchemy.text("UPDATE ml SET num_red_potions = num_red_potions + :quantity"),
+                        sqlalchemy.text("UPDATE potions SET num_red_potions = num_red_potions + :quantity"),
                         {"quantity": potion.quantity}
                     )
                     connection.execute(
@@ -46,7 +46,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             elif potion.potion_type == [0, 100, 0, 0]:  
                 if current_green_ml >= ml_needed:
                     connection.execute(
-                        sqlalchemy.text("UPDATE ml SET num_green_potions = num_green_potions + :quantity"),
+                        sqlalchemy.text("UPDATE potions SET num_green_potions = num_green_potions + :quantity"),
                         {"quantity": potion.quantity}
                     )
                     connection.execute(
@@ -59,7 +59,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             elif potion.potion_type == [0, 0, 100, 0]: 
                 if current_blue_ml >= ml_needed:
                     connection.execute(
-                        sqlalchemy.text("UPDATE ml SET num_blue_potions = num_blue_potions + :quantity"),
+                        sqlalchemy.text("UPDATE potions SET num_blue_potions = num_blue_potions + :quantity"),
                         {"quantity": potion.quantity}
                     )
                     connection.execute(
@@ -82,11 +82,13 @@ def get_bottle_plan():
         current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM ml")).scalar()
         current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM ml")).scalar()
 
-        print(f"Current Green ML: {current_green_ml}, Red ML: {current_red_ml}, Blue ML: {current_blue_ml}")
+        print(f"Current Red ML: {current_red_ml}, Green ML: {current_green_ml}, Blue ML: {current_blue_ml}")
 
         quantity_green = int(current_green_ml / 100)
         quantity_red = int(current_red_ml / 100)
         quantity_blue = int(current_blue_ml / 100)
+
+        print(f"Quantity red: {quantity_red}, Quantity green: {quantity_green}, Quantity blue: {quantity_blue}")
 
         if current_red_ml >= 100:
             bottle_plan.append({
