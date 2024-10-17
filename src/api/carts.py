@@ -146,8 +146,8 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 class CartCheckout(BaseModel):
     payment: str
 
-
-@router.post("/{cart_id}/checkout")
+# old checkout
+'''@router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
 
     total_cost = 0
@@ -262,5 +262,111 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         "total_cost": total_cost,
         "new_gold_balance": new_gold_amount
     }
+'''
+# new checkout
+@router.post("/{cart_id}/checkout")
+def checkout(cart_id: int, cart_checkout: CartCheckout):
+    total_cost = 0
 
+    with db.engine.begin() as connection:
+        # Check if the cart exists and has not been checked out already
+        cart = connection.execute(sqlalchemy.text("""
+            SELECT checked_out FROM carts WHERE cart_id = :cart_id
+        """), {"cart_id": cart_id}).fetchone()
+
+        if not cart:
+            raise HTTPException(status_code=404, detail="Cart not found")
+
+        if cart.checked_out:
+            return {"error": "Cart has already been checked out"}
+
+        # Select current gold balance
+        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
+
+        # Select cart items
+        cart_items = connection.execute(sqlalchemy.text("""
+            SELECT item_sku, quantity FROM cart_items WHERE cart_id = :cart_id
+        """), {"cart_id": cart_id}).fetchall()
+
+        if not cart_items:
+            return {"error": "No items in the cart"}
+
+        # Calculate the total cost and update inventory levels for custom potions
+        for item in cart_items:
+            potion_sku = item.item_sku
+            potion_quantity = item.quantity
+
+            # Extract potion_id from potion_sku
+            if not potion_sku.startswith("POTION_"):
+                return {"error": f"Invalid potion SKU: {potion_sku}"}
+            
+            potion_id = int(potion_sku.replace("POTION_", ""))
+
+            # Get the custom potion details
+            potion = connection.execute(sqlalchemy.text("""
+                SELECT potion_id, inventory, price
+                FROM custom_potions
+                WHERE potion_id = :potion_id
+            """), {"potion_id": potion_id}).fetchone()
+
+            if not potion:
+                return {"error": f"Potion with ID {potion_id} not found"}
+
+            potion_inventory = potion.inventory
+            potion_cost = potion.price
+
+            if potion_inventory < potion_quantity:
+                return {
+                    "error": f"Not enough inventory for potion {potion_sku}. Requested: {potion_quantity}, Available: {potion_inventory}"
+                }
+
+            # Update inventory
+            new_inventory = potion_inventory - potion_quantity
+            connection.execute(sqlalchemy.text("""
+                UPDATE custom_potions
+                SET inventory = :new_inventory
+                WHERE potion_id = :potion_id
+            """), {
+                "new_inventory": new_inventory,
+                "potion_id": potion_id
+            })
+
+            # Calculate item total
+            item_total = potion_quantity * potion_cost
+            total_cost += item_total
+
+            # Update the cart item with item_price and item_total
+            connection.execute(sqlalchemy.text("""
+                UPDATE cart_items
+                SET item_price = :item_price, 
+                    item_total = :item_total
+                WHERE cart_id = :cart_id AND item_sku = :item_sku
+            """), {
+                "item_price": potion_cost,
+                "item_total": item_total,
+                "cart_id": cart_id,
+                "item_sku": potion_sku
+            })
+
+        # Update the gold balance
+        new_gold_amount = current_gold + total_cost
+        connection.execute(
+            sqlalchemy.text(
+                "INSERT INTO gold_transactions (gold) VALUES (:gold)"
+            ),
+            {"gold": new_gold_amount},
+        )
+
+        # Mark the cart as checked out
+        connection.execute(sqlalchemy.text("""
+            UPDATE carts
+            SET checked_out = TRUE
+            WHERE cart_id = :cart_id
+        """), {"cart_id": cart_id})
+
+    return {
+        "message": f"Checkout successful for cart {cart_id}",
+        "total_cost": total_cost,
+        "new_gold_balance": new_gold_amount
+    }
 

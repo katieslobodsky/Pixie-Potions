@@ -19,29 +19,29 @@ def reset():
     inventory, and all barrels are removed from inventory. Carts are all reset.
     """
     with db.engine.begin() as connection:
+        # Delete all gold transactions
         connection.execute(sqlalchemy.text("""
             DELETE FROM gold_transactions
         """))
 
-        # Insert a new gold transaction with value of 100
+        # Insert a new gold transaction with value of 100 (starting value)
         connection.execute(sqlalchemy.text("""
             INSERT INTO gold_transactions (gold) VALUES (:gold)
         """), {"gold": 100})
 
-        # Reset potions table
-        connection.execute(sqlalchemy.text("""
-            UPDATE potions 
-            SET num_green_potions = 0, 
-                num_red_potions = 0, 
-                num_blue_potions = 0
-        """))
-
-        # Reset ml table
+        # Reset the ml table
         connection.execute(sqlalchemy.text("""
             UPDATE ml 
             SET num_green_ml = 0, 
                 num_red_ml = 0, 
-                num_blue_ml = 0
+                num_blue_ml = 0,
+                num_dark_ml = 0
+        """))
+
+        # Reset the custom potions inventory
+        connection.execute(sqlalchemy.text("""
+            UPDATE custom_potions 
+            SET inventory = 0
         """))
 
         # Delete all carts
