@@ -17,7 +17,7 @@ def get_inventory():
     with db.engine.begin() as connection:
         # Get total potions and ml from the custom_potions and ml tables
         result = connection.execute(sqlalchemy.text("""
-            SELECT (SELECT COALESCE(SUM(quantity), 0) FROM custom_potions) AS total_potions,
+            SELECT (SELECT COALESCE(SUM(inventory), 0) FROM custom_potions) AS total_potions,
                    (SELECT COALESCE(SUM(ml_amount), 0) FROM ml) AS total_ml
         """)).fetchone()
 
