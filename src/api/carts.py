@@ -137,21 +137,17 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     total_cost = 0
+    total_potions_bought = 0  
 
     with db.engine.begin() as connection:
-
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
-
         cart_items = connection.execute(sqlalchemy.text("SELECT item_sku, quantity FROM cart_items WHERE cart_id = :cart_id"), {"cart_id": cart_id}).fetchall()
 
         for item in cart_items:
             potion_sku = item.item_sku
             potion_quantity = item.quantity
-            
             potion_id = int(potion_sku.replace("POTION_", ""))
-
             potion = connection.execute(sqlalchemy.text("SELECT potion_id, inventory, price FROM custom_potions WHERE potion_id = :potion_id"), {"potion_id": potion_id}).fetchone()
-
             potion_inventory = potion.inventory
             potion_cost = potion.price
 
@@ -162,7 +158,6 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
             # Updating potion inventory
             new_inventory = potion_inventory - potion_quantity
-            print(f"new inventory: {new_inventory}")
             connection.execute(sqlalchemy.text("UPDATE custom_potions SET inventory = :new_inventory WHERE potion_id = :potion_id"), {
                 "new_inventory": new_inventory,
                 "potion_id": potion_id
@@ -170,8 +165,9 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
             item_total = potion_quantity * potion_cost
             total_cost += item_total
+            total_potions_bought += potion_quantity  # Increment total potions bought
 
-            # Updating the cart item with item_price and item_total
+            # Updating the cart item with item price and item total
             connection.execute(sqlalchemy.text("UPDATE cart_items SET item_price = :item_price, item_total = :item_total WHERE cart_id = :cart_id AND item_sku = :item_sku"), {
                 "item_price": potion_cost,
                 "item_total": item_total,
@@ -179,20 +175,17 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 "item_sku": potion_sku
             })
 
-        # Updating the gold balance
+        # Updating the gold balance after checkout
         new_gold_amount = current_gold + total_cost
-        connection.execute(
-            sqlalchemy.text(
-                "INSERT INTO gold_transactions (gold) VALUES (:gold)"
-            ),
-            {"gold": new_gold_amount},
-        )
+        connection.execute(sqlalchemy.text("INSERT INTO gold_transactions (gold) VALUES (:gold)"), {
+            "gold": new_gold_amount
+        })
 
         connection.execute(sqlalchemy.text("UPDATE carts SET checked_out = TRUE WHERE cart_id = :cart_id"), {"cart_id": cart_id})
 
     return {
-        "message": f"Checkout successful for cart {cart_id}",
-        "total_cost": total_cost,
-        "new_gold_balance": new_gold_amount
+        "total_potions_bought": total_potions_bought,
+        "total_gold_paid": total_cost,
     }
+
 
