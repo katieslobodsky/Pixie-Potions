@@ -146,129 +146,12 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 class CartCheckout(BaseModel):
     payment: str
 
-# old checkout
-'''@router.post("/{cart_id}/checkout")
-def checkout(cart_id: int, cart_checkout: CartCheckout):
-
-    total_cost = 0
-
-    with db.engine.begin() as connection:
-        # Check if the cart exists and has not been checked out already
-        cart = connection.execute(sqlalchemy.text("""
-            SELECT checked_out FROM carts WHERE cart_id = :cart_id
-        """), {"cart_id": cart_id}).fetchone()
-
-        if not cart:
-            raise HTTPException(status_code=404, detail="Cart not found")
-
-        if cart.checked_out:
-            return {"error": "Cart has already been checked out"}
-
-        # Select current inventory levels and gold
-        inventory = connection.execute(sqlalchemy.text("SELECT num_green_potions, num_red_potions, num_blue_potions FROM potions")).fetchone()
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
-
-        current_green_potions = inventory.num_green_potions
-        current_red_potions = inventory.num_red_potions
-        current_blue_potions = inventory.num_blue_potions
-
-        # Select cart items
-        cart_items = connection.execute(sqlalchemy.text("""
-            SELECT item_sku, quantity FROM cart_items WHERE cart_id = :cart_id
-        """), {"cart_id": cart_id}).fetchall()
-
-        if not cart_items:
-            return {"error": "No items in the cart"}
-
-        # Calculate the total cost and update inventory levels
-        for item in cart_items:
-            potion_sku = item.item_sku
-            potion_quantity = item.quantity
-            potion_cost = 0
-
-            if potion_sku == "RED_POTION_0":
-                potion_cost = 50
-                if current_red_potions < potion_quantity:
-                    return {
-                        "error": f"Not enough red potions in stock. Requested: {potion_quantity}, Available: {current_red_potions}"
-                    }
-                current_red_potions -= potion_quantity
-
-            elif potion_sku == "GREEN_POTION_0":
-                potion_cost = 75
-                if current_green_potions < potion_quantity:
-                    return {
-                        "error": f"Not enough green potions in stock. Requested: {potion_quantity}, Available: {current_green_potions}"
-                    }
-                current_green_potions -= potion_quantity
-
-            elif potion_sku == "BLUE_POTION_0":
-                potion_cost = 100
-                if current_blue_potions < potion_quantity:
-                    return {
-                        "error": f"Not enough blue potions in stock. Requested: {potion_quantity}, Available: {current_blue_potions}"
-                    }
-                current_blue_potions -= potion_quantity
-
-            # Calculate item total
-            item_total = potion_quantity * potion_cost
-            total_cost += item_total
-
-            # Update the cart item with item_price and item_total
-            connection.execute(sqlalchemy.text("""
-                UPDATE cart_items
-                SET item_price = :item_price, 
-                    item_total = :item_total
-                WHERE cart_id = :cart_id AND item_sku = :item_sku
-            """), {
-                "item_price": potion_cost,
-                "item_total": item_total,
-                "cart_id": cart_id,
-                "item_sku": potion_sku
-            })
-
-        new_gold_amount = current_gold + total_cost
-        print(f"new gold amount = {new_gold_amount}")
-
-        # Insert a new row into gold_transactions
-        connection.execute(
-            sqlalchemy.text(
-                "INSERT INTO gold_transactions (gold) VALUES (:gold)"
-            ),
-            {"gold": new_gold_amount},
-        )
-
-        # Update green potions, red potions, and blue potions in global_inventory 
-        connection.execute(sqlalchemy.text("""
-            UPDATE potions
-            SET num_green_potions = :new_green, 
-                num_red_potions = :new_red, 
-                num_blue_potions = :new_blue
-        """), {
-            "new_green": current_green_potions,
-            "new_red": current_red_potions,
-            "new_blue": current_blue_potions
-        })
-
-        # Mark the cart as checked out (change checked_out from false to true)
-        connection.execute(sqlalchemy.text("""
-            UPDATE carts
-            SET checked_out = TRUE
-            WHERE cart_id = :cart_id
-        """), {"cart_id": cart_id})
-
-    return {
-        "message": f"Checkout successful for cart {cart_id}",
-        "total_cost": total_cost,
-        "new_gold_balance": new_gold_amount
-    }
-'''
-# new checkout
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     total_cost = 0
 
     with db.engine.begin() as connection:
+
         # Check if the cart exists and has not been checked out already
         cart = connection.execute(sqlalchemy.text("""
             SELECT checked_out FROM carts WHERE cart_id = :cart_id
@@ -279,6 +162,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
         if cart.checked_out:
             return {"error": "Cart has already been checked out"}
+
 
         # Select current gold balance
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
@@ -287,6 +171,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         cart_items = connection.execute(sqlalchemy.text("""
             SELECT item_sku, quantity FROM cart_items WHERE cart_id = :cart_id
         """), {"cart_id": cart_id}).fetchall()
+
+        print(cart_items)
 
         if not cart_items:
             return {"error": "No items in the cart"}
@@ -309,11 +195,15 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 WHERE potion_id = :potion_id
             """), {"potion_id": potion_id}).fetchone()
 
+            print(potion)
+
             if not potion:
                 return {"error": f"Potion with ID {potion_id} not found"}
 
             potion_inventory = potion.inventory
+            print(potion_inventory)
             potion_cost = potion.price
+            print(potion_cost)
 
             if potion_inventory < potion_quantity:
                 return {
@@ -322,6 +212,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
             # Update inventory
             new_inventory = potion_inventory - potion_quantity
+            print(f"new inventory: {new_inventory}")
             connection.execute(sqlalchemy.text("""
                 UPDATE custom_potions
                 SET inventory = :new_inventory
@@ -333,7 +224,9 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
             # Calculate item total
             item_total = potion_quantity * potion_cost
+            print(f"item total: {item_total}")
             total_cost += item_total
+            print(f"total cost: {total_cost}")
 
             # Update the cart item with item_price and item_total
             connection.execute(sqlalchemy.text("""
