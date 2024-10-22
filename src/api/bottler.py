@@ -117,8 +117,6 @@ def get_bottle_plan():
             else:
                 max_quantity = 0
 
-            max_quantity = min(max_quantity, 10 - inventory)
-
             if max_quantity > 0:
                 bottle_plan.append({
                     "potion_type": [red_percent, green_percent, blue_percent, dark_percent],
