@@ -90,10 +90,6 @@ def post_visits(visit_id: int, customers: list[Customer]):
 
     return "OK"
 
-
-import sqlalchemy
-from fastapi import HTTPException
-
 @router.post("/")
 def create_cart(new_cart: Customer):
 
