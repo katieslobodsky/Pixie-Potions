@@ -161,7 +161,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
 
         # Select current gold balance
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
+        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1 FOR UPDATE")).scalar()
 
         # Select cart items
         cart_items = connection.execute(sqlalchemy.text("""
