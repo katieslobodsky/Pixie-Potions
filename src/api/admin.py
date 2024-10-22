@@ -4,7 +4,6 @@ from src import database as db
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from src.api import auth
-from src.api.carts import carts, cart_counter
 
 router = APIRouter(
     prefix="/admin",

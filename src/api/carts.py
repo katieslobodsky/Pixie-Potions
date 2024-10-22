@@ -7,9 +7,6 @@ from src.api import auth
 from enum import Enum
 from fastapi import HTTPException
 
-carts = {}
-cart_counter = 0
-
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
@@ -86,6 +83,16 @@ def post_visits(visit_id: int, customers: list[Customer]):
     """
     Which customers visited the shop today?
     """
+    with db.engine.begin() as connection:
+        for customer in customers:
+            connection.execute(sqlalchemy.text("""
+                INSERT INTO visits (customer_name, character_class, level)
+                VALUES (:customer_name, :character_class, :level)
+            """), {
+                "customer_name": customer.customer_name,
+                "character_class": customer.character_class,
+                "level": customer.level
+            })
     print(customers)
 
     return "OK"
