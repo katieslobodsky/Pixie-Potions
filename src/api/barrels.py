@@ -100,17 +100,12 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             else:
                 needs_more_ml = False  
 
+            purchased_quantity = 0  
+
             if needs_more_ml:
                 for _ in range(barrel.quantity):
                     if current_gold >= barrel.price:
-                        purchase_plan.append({
-                            "sku": barrel.sku,
-                            "ml_per_barrel": barrel.ml_per_barrel,
-                            "potion_type": barrel.potion_type,
-                            "price": barrel.price,
-                            "quantity": 1  
-                        })
-
+                        purchased_quantity += 1
                         current_gold -= barrel.price
 
                         if barrel.potion_type == [1, 0, 0, 0]:  
@@ -122,13 +117,23 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                         elif barrel.potion_type == [0, 0, 0, 1]:  
                             current_dark_ml += barrel.ml_per_barrel
 
-                        print(f"added one {barrel.sku} to the plan. remaining gold: {current_gold}")
+                        print(f"Purchased one {barrel.sku}, remaining gold: {current_gold}")
                     else:
-                        print(f"not enough gold to purchase {barrel.sku}. required: {barrel.price}, available: {current_gold}")
+                        print(f"Not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
                         break  
+
+            if purchased_quantity > 0:
+                purchase_plan.append({
+                    "sku": barrel.sku,
+                    "ml_per_barrel": barrel.ml_per_barrel,
+                    "potion_type": barrel.potion_type,
+                    "price": barrel.price,
+                    "quantity": purchased_quantity  
+                })
 
     print(f"Wholesale purchase plan: {purchase_plan}")
     return purchase_plan
+
 
 
 
