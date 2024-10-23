@@ -105,9 +105,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     if current_gold >= barrel.price:
                         purchase_plan.append({
                             "sku": barrel.sku,
-                            "ml_per_barrel": barrel.ml_per_barrel,
-                            "potion_type": barrel.potion_type,
-                            "price": barrel.price,
                             "quantity": 1  
                         })
 
