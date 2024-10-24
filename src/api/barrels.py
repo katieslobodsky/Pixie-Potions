@@ -85,54 +85,57 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         current_dark_ml = connection.execute(sqlalchemy.text("SELECT num_dark_ml FROM ml")).scalar()
         current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
 
-        print(f"current ml levels: Red={current_red_ml}, Green={current_green_ml}, Blue={current_blue_ml}, Dark={current_dark_ml}")
-        print(f"current gold: {current_gold}")
+        print(f"Current ml levels: Red={current_red_ml}, Green={current_green_ml}, Blue={current_blue_ml}, Dark={current_dark_ml}")
+        print(f"Current gold: {current_gold}")
 
-        for barrel in wholesale_catalog:
-            if barrel.potion_type == [1, 0, 0, 0]:  
-                needs_more_ml = current_red_ml < 200
-            elif barrel.potion_type == [0, 1, 0, 0]: 
-                needs_more_ml = current_green_ml < 200
-            elif barrel.potion_type == [0, 0, 1, 0]:  
-                needs_more_ml = current_blue_ml < 200
-            elif barrel.potion_type == [0, 0, 0, 1]:  
-                needs_more_ml = current_dark_ml < 200
-            else:
-                needs_more_ml = False  
+        priority_order = [
+            (current_red_ml, [1, 0, 0, 0]), 
+            (current_green_ml, [0, 1, 0, 0]), 
+            (current_blue_ml, [0, 0, 1, 0]),  
+            (current_dark_ml, [0, 0, 0, 1]), 
+        ]
+        
+        priority_order.sort(key=lambda x: x[0])  
 
-            purchased_quantity = 0  
+        for ml_level, potion_type in priority_order:
+            for barrel in wholesale_catalog:
+                if barrel.potion_type == potion_type:
+                    needs_more_ml = ml_level < 200
 
-            if needs_more_ml:
-                for _ in range(barrel.quantity):
-                    if current_gold >= barrel.price:
-                        purchased_quantity += 1
-                        current_gold -= barrel.price
+                    if needs_more_ml:
+                        purchased_quantity = 0
 
-                        if barrel.potion_type == [1, 0, 0, 0]:  
-                            current_red_ml += barrel.ml_per_barrel
-                        elif barrel.potion_type == [0, 1, 0, 0]:
-                            current_green_ml += barrel.ml_per_barrel
-                        elif barrel.potion_type == [0, 0, 1, 0]: 
-                            current_blue_ml += barrel.ml_per_barrel
-                        elif barrel.potion_type == [0, 0, 0, 1]:  
-                            current_dark_ml += barrel.ml_per_barrel
+                        for _ in range(barrel.quantity):
+                            if current_gold >= barrel.price:
+                                purchased_quantity += 1
+                                current_gold -= barrel.price
 
-                        print(f"Purchased one {barrel.sku}, remaining gold: {current_gold}")
-                    else:
-                        print(f"Not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
-                        break  
+                                if potion_type == [1, 0, 0, 0]:  
+                                    current_red_ml += barrel.ml_per_barrel
+                                elif potion_type == [0, 1, 0, 0]:  
+                                    current_green_ml += barrel.ml_per_barrel
+                                elif potion_type == [0, 0, 1, 0]:  
+                                    current_blue_ml += barrel.ml_per_barrel
+                                elif potion_type == [0, 0, 0, 1]:  
+                                    current_dark_ml += barrel.ml_per_barrel
 
-            if purchased_quantity > 0:
-                purchase_plan.append({
-                    "sku": barrel.sku,
-                    "ml_per_barrel": barrel.ml_per_barrel,
-                    "potion_type": barrel.potion_type,
-                    "price": barrel.price,
-                    "quantity": purchased_quantity  
-                })
+                                print(f"Purchased one {barrel.sku}, remaining gold: {current_gold}")
+                            else:
+                                print(f"Not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
+                                break  
+
+                    if purchased_quantity > 0:
+                        purchase_plan.append({
+                            "sku": barrel.sku,
+                            "ml_per_barrel": barrel.ml_per_barrel,
+                            "potion_type": barrel.potion_type,
+                            "price": barrel.price,
+                            "quantity": purchased_quantity  
+                        })
 
     print(f"Wholesale purchase plan: {purchase_plan}")
     return purchase_plan
+
 
 
 
