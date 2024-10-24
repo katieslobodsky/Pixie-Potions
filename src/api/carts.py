@@ -154,7 +154,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             potion_sku = item.item_sku
             potion_quantity = item.quantity
             potion_id = int(potion_sku.replace("POTION_", ""))
-            potion = connection.execute(sqlalchemy.text("SELECT potion_id, inventory, price FROM custom_potions WHERE potion_id = :potion_id"), {"potion_id": potion_id}).fetchone()
+            potion = connection.execute(sqlalchemy.text("SELECT potion_id, inventory, price FROM custom_potions WHERE potion_id = :potion_id FOR UPDATE"), {"potion_id": potion_id}).fetchone()
             potion_inventory = potion.inventory
             potion_cost = potion.price
 
