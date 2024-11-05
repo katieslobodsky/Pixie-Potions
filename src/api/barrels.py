@@ -34,7 +34,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
             if current_gold >= total_barrel_cost:
                 current_gold -= total_barrel_cost
-                ml_message = f"Delivered {barrel.quantity} barrels of {barrel.sku} adding {barrel.quantity * barrel.ml_per_barrel} ml"
+                ml_message = f"delivered {barrel.quantity} barrels of {barrel.sku} adding {barrel.quantity * barrel.ml_per_barrel} ml"
 
                 # Inserting a new row with ml change for the corresponding potion type
                 ml_change = barrel.quantity * barrel.ml_per_barrel
