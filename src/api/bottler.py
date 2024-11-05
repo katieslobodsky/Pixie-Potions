@@ -19,12 +19,13 @@ class PotionInventory(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     with db.engine.begin() as connection:
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM ml")).scalar()
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM ml")).scalar()
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM ml")).scalar()
-        current_dark_ml = connection.execute(sqlalchemy.text("SELECT num_dark_ml FROM ml")).scalar()
+        # Selecting current ML levels
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar() or 0
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar() or 0
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar() or 0
+        current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar() or 0
 
-        print(f"green ml: {current_green_ml}, red ml: {current_red_ml}, blue ml: {current_blue_ml}, dark ml: {current_dark_ml}")
+        print(f"current ML levels: green={current_green_ml}, red={current_red_ml}, blue={current_blue_ml}, dark={current_dark_ml}")
 
         for potion in potions_delivered:
             red_percent, green_percent, blue_percent, dark_percent = potion.potion_type
@@ -35,45 +36,72 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             total_blue_ml_needed = blue_percent * quantity
             total_dark_ml_needed = dark_percent * quantity
 
-            print(f"delivering potion: {potion.potion_type}, Quantity: {quantity}")
-            print(f"ML needed - Red: {total_red_ml_needed}, Green: {total_green_ml_needed}, Blue: {total_blue_ml_needed}, Dark: {total_dark_ml_needed}")
+            print(f"delivering potion: {potion.potion_type}, quantity: {quantity}")
+            print(f"ML needed - red: {total_red_ml_needed}, green: {total_green_ml_needed}, blue: {total_blue_ml_needed}, dark: {total_dark_ml_needed}")
 
             if (current_red_ml >= total_red_ml_needed and
                 current_green_ml >= total_green_ml_needed and
                 current_blue_ml >= total_blue_ml_needed and
                 current_dark_ml >= total_dark_ml_needed):
 
-                # Updating potion inventory (adding new quantity of ml)
-                connection.execute(
-                    sqlalchemy.text("UPDATE custom_potions SET inventory = inventory + :quantity WHERE red_percent = :red_percent AND green_percent = :green_percent AND blue_percent = :blue_percent AND dark_percent = :dark_percent"),
+                # Selecting price and potion_name for the potion type
+                result = connection.execute(
+                    sqlalchemy.text("""
+                        SELECT potion_id, price, potion_name 
+                        FROM potions
+                        WHERE red_percent = :red_percent AND green_percent = :green_percent
+                          AND blue_percent = :blue_percent AND dark_percent = :dark_percent
+                        LIMIT 1
+                    """),
                     {
-                        "quantity": quantity,
                         "red_percent": red_percent,
                         "green_percent": green_percent,
                         "blue_percent": blue_percent,
                         "dark_percent": dark_percent
                     }
+                ).fetchone()
+
+                potion_id, price, potion_name = result.potion_id, result.price, result.potion_name
+                message = f"added {quantity} potions of {potion_name} (SKU: POTION_{potion_id})"
+
+                # Inserting change in quantity for potions delivered
+                connection.execute(
+                    sqlalchemy.text("""
+                        INSERT INTO potions_ledger (potion_id, red_percent, green_percent, blue_percent, dark_percent, quantity, price, potion_name, message)
+                        VALUES (:potion_id, :red_percent, :green_percent, :blue_percent, :dark_percent, :quantity_change, :price, :potion_name, :message)
+                    """),
+                    {
+                        "potion_id": potion_id,
+                        "red_percent": red_percent,
+                        "green_percent": green_percent,
+                        "blue_percent": blue_percent,
+                        "dark_percent": dark_percent,
+                        "quantity_change": quantity,
+                        "price": price,
+                        "potion_name": potion_name,
+                        "message": message
+                    }
+                )
+                ml_message = (
+                    f"used {total_red_ml_needed} ml red, {total_green_ml_needed} ml green, "
+                    f"{total_blue_ml_needed} ml blue, and {total_dark_ml_needed} ml dark for {quantity} {potion_name} potions"
+                )
+                # Inserting a row in the ml table with all ml changes for each potion delivered
+                connection.execute(
+                    sqlalchemy.text("""
+                        INSERT INTO ml (num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, message)
+                        VALUES (:red_ml_used, :green_ml_used, :blue_ml_used, :dark_ml_used, :message)
+                    """),
+                    {
+                        "red_ml_used": -total_red_ml_needed,
+                        "green_ml_used": -total_green_ml_needed,
+                        "blue_ml_used": -total_blue_ml_needed,
+                        "dark_ml_used": -total_dark_ml_needed,
+                        "message": ml_message
+                    }
                 )
 
-                # Updating ml table (subtracing current - ml used)
-                connection.execute(
-                    sqlalchemy.text("UPDATE ml SET num_red_ml = num_red_ml - :ml_used"),
-                    {"ml_used": total_red_ml_needed}
-                )
-                connection.execute(
-                    sqlalchemy.text("UPDATE ml SET num_green_ml = num_green_ml - :ml_used"),
-                    {"ml_used": total_green_ml_needed}
-                )
-                connection.execute(
-                    sqlalchemy.text("UPDATE ml SET num_blue_ml = num_blue_ml - :ml_used"),
-                    {"ml_used": total_blue_ml_needed}
-                )
-                connection.execute(
-                    sqlalchemy.text("UPDATE ml SET num_dark_ml = num_dark_ml - :ml_used"),
-                    {"ml_used": total_dark_ml_needed}
-                )
-
-                print(f"updated inventory and ml levels for potion: {potion.potion_type}")
+                print(f"inserted change in quantity for potion and recorded ml usage for potion: {potion.potion_type}")
 
             else:
                 print(f"not enough ml available for potion: {potion.potion_type}")
@@ -82,25 +110,36 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     return "OK"
 
 
+
+
 @router.post("/plan")
 def get_bottle_plan():
     bottle_plan = []
 
     with db.engine.begin() as connection:
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM ml")).scalar()
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM ml")).scalar()
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM ml")).scalar()
-        current_dark_ml = connection.execute(sqlalchemy.text("SELECT num_dark_ml FROM ml")).scalar()
+        # Selecting ml levels as a sum of all rows
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar()
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar()
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar()
+        current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar()
 
-        potions = connection.execute(sqlalchemy.text("""
-            SELECT red_percent, green_percent, blue_percent, dark_percent, inventory 
-            FROM custom_potions
-        """)).fetchall()
+        potions = connection.execute(sqlalchemy.text("SELECT red_percent, green_percent, blue_percent, dark_percent FROM potions")).fetchall()
 
         for potion in potions:
-            red_percent, green_percent, blue_percent, dark_percent, inventory = potion
+            red_percent, green_percent, blue_percent, dark_percent = potion
+            # Selecting the current total quantity of this potion type from potions_ledger
+            quantity = connection.execute(sqlalchemy.text("""
+                SELECT COALESCE(SUM(quantity), 0) FROM potions_ledger
+                WHERE red_percent = :red_percent AND green_percent = :green_percent
+                  AND blue_percent = :blue_percent AND dark_percent = :dark_percent
+            """), {
+                "red_percent": red_percent,
+                "green_percent": green_percent,
+                "blue_percent": blue_percent,
+                "dark_percent": dark_percent
+            }).scalar()
 
-            if inventory >= 10:
+            if quantity >= 10:
                 continue
 
             ml_requirements = [

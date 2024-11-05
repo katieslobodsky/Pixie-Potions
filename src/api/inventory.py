@@ -15,25 +15,24 @@ router = APIRouter(
 @router.get("/audit")
 def get_inventory():
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("""
-            SELECT (SELECT COALESCE(SUM(inventory), 0) FROM custom_potions) AS total_potions
-        """)).fetchone()
+        total_potions = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(quantity), 0) AS total_potions FROM potions_ledger")).scalar()
 
-        ml_result = connection.execute(sqlalchemy.text("""
-            SELECT COALESCE(SUM(num_red_ml), 0) + 
+        total_ml = connection.execute(sqlalchemy.text("""
+            SELECT COALESCE(SUM(num_red_ml), 0) +
                    COALESCE(SUM(num_green_ml), 0) + 
-                   COALESCE(SUM(num_blue_ml), 0) + 
+                   COALESCE(SUM(num_blue_ml), 0) +
                    COALESCE(SUM(num_dark_ml), 0) AS total_ml
             FROM ml
         """)).scalar()
 
-        gold_result = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
+        gold_balance = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(gold), 0) AS total_gold FROM gold_transactions")).scalar()
 
-        return {
-            "number_of_potions": result.total_potions,
-            "ml_in_barrels": ml_result,
-            "gold": gold_result
-        }
+    return {
+        "number_of_potions": total_potions,
+        "ml_in_barrels": total_ml,
+        "gold": gold_balance
+    }
+
 
 @router.post("/plan")
 def get_capacity_plan():
@@ -41,14 +40,16 @@ def get_capacity_plan():
     Calculate the capacity for potions and ml based on the current inventory levels.
     """
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("""
-            SELECT COALESCE(SUM(inventory), 0) AS total_potions,
-                   COALESCE(SUM((red_percent + green_percent + blue_percent + dark_percent) * inventory / 100), 0) AS total_ml_needed
-            FROM custom_potions
-        """)).fetchone()
+        total_potions = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(quantity), 0) AS total_potions FROM potions_ledger")).scalar()
 
-        total_potions = result.total_potions
-        total_ml_needed = result.total_ml_needed
+        total_ml_needed = connection.execute(sqlalchemy.text("""
+            SELECT COALESCE(SUM(
+                (potions.red_percent + potions.green_percent + potions.blue_percent + potions.dark_percent) 
+                * potions_ledger.quantity / 100.0
+            ), 0)
+            FROM potions
+            JOIN potions_ledger ON potions.potion_id = potions_ledger.potion_id
+        """)).scalar()
 
         potion_capacity = max(1, math.ceil(total_potions / 50))
         ml_capacity = max(1, math.ceil(total_ml_needed / 10000))
@@ -57,6 +58,7 @@ def get_capacity_plan():
         "potion_capacity": potion_capacity,
         "ml_capacity": ml_capacity
     }
+
 
 class CapacityPurchase(BaseModel):
     potion_capacity: int
@@ -69,35 +71,28 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
     Purchase additional capacity for potions and ml if there is enough gold.
     """
     if capacity_purchase.potion_capacity <= 0 or capacity_purchase.ml_capacity <= 0:
-        return {"error": "potion and ml capacity must be greater than zero."}
+        return {"error": "Potion and ml capacity must be greater than zero."}
 
     with db.engine.begin() as connection:
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
-
+        current_gold = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(gold), 0) FROM gold_transactions")).scalar()
         total_cost = (capacity_purchase.potion_capacity + capacity_purchase.ml_capacity) * 1000
-        print(f"total cost for capacity purchase: {total_cost}")
-
-        if current_gold is None:
-            return {"error": "current gold amount is not available."}
-
         if current_gold < total_cost:
-            return {"error": "not enough gold to purchase capacity."}
+            return {"error": "Not enough gold to purchase capacity."}
 
-        new_gold_balance = current_gold - total_cost
         connection.execute(sqlalchemy.text("""
-            INSERT INTO gold_transactions (gold) VALUES (:new_gold)
-        """), {"new_gold": new_gold_balance})
-
-        # Log the new balances and capacities
-        print(f"new gold balance: {new_gold_balance}")
-        print(f"purchased potion capacity: {capacity_purchase.potion_capacity}")
-        print(f"purchased ml capacity: {capacity_purchase.ml_capacity}")
+            INSERT INTO gold_transactions (gold, message) 
+            VALUES (:gold_change, :message)
+        """), {
+            "gold_change": -total_cost,
+            "message": f"Subtracted {total_cost} gold for purchasing capacity: {capacity_purchase.potion_capacity} potion capacity and {capacity_purchase.ml_capacity} ml capacity"
+        })
 
     return {
         "status": "success",
         "message": "Capacity purchase delivered successfully.",
-        "new_gold_balance": new_gold_balance,
+        "remaining_gold": current_gold - total_cost,
         "potion_capacity": capacity_purchase.potion_capacity,
         "ml_capacity": capacity_purchase.ml_capacity
     }
+
 

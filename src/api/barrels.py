@@ -24,10 +24,8 @@ class Barrel(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
-    # Selecting most recent value of gold
     with db.engine.begin() as connection:
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
-
+        current_gold = connection.execute(sqlalchemy.text("SELECT SUM(gold) FROM gold_transactions")).scalar() or 0
         print(f"current gold before barrel purchase: {current_gold}")
 
         for barrel in barrels_delivered:
@@ -36,31 +34,33 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
             if current_gold >= total_barrel_cost:
                 current_gold -= total_barrel_cost
+                ml_message = f"Delivered {barrel.quantity} barrels of {barrel.sku} adding {barrel.quantity * barrel.ml_per_barrel} ml"
 
-                # Updating the inventory for the corresponding potion type
-                if barrel.potion_type == [1, 0, 0, 0]:  
-                    connection.execute(sqlalchemy.text("UPDATE ml SET num_red_ml = num_red_ml + :ml"),
-                    {"ml": barrel.quantity * barrel.ml_per_barrel},
+                # Inserting a new row with ml change for the corresponding potion type
+                ml_change = barrel.quantity * barrel.ml_per_barrel
+                if barrel.potion_type == [1, 0, 0, 0]:
+                    connection.execute(sqlalchemy.text("INSERT INTO ml (num_red_ml, message) VALUES (:change, :message)"),
+                        {"change": ml_change, "message": ml_message},
                     )
                 elif barrel.potion_type == [0, 1, 0, 0]:  
-                    connection.execute(sqlalchemy.text("UPDATE ml SET num_green_ml = num_green_ml + :ml"),
-                    {"ml": barrel.quantity * barrel.ml_per_barrel},
+                    connection.execute(sqlalchemy.text("INSERT INTO ml (num_green_ml, message) VALUES (:change, :message)"),
+                        {"change": ml_change, "message": ml_message},
                     )
                 elif barrel.potion_type == [0, 0, 1, 0]: 
-                    connection.execute(sqlalchemy.text("UPDATE ml SET num_blue_ml = num_blue_ml + :ml"),
-                    {"ml": barrel.quantity * barrel.ml_per_barrel},
+                    connection.execute(sqlalchemy.text("INSERT INTO ml (num_blue_ml, message) VALUES (:change, :message)"),
+                        {"change": ml_change, "message": ml_message},
                     )
-
                 elif barrel.potion_type == [0, 0, 0, 1]:  
-                    connection.execute(sqlalchemy.text("UPDATE ml SET num_dark_ml = num_dark_ml + :ml"),
-                    {"ml": barrel.quantity * barrel.ml_per_barrel},
+                    connection.execute(sqlalchemy.text("INSERT INTO ml (num_dark_ml, message) VALUES (:change, :message)"),
+                        {"change": ml_change, "message": ml_message},
                     )
 
-                # Inserting a new row with updated gold into gold_transactions
-                connection.execute(sqlalchemy.text("INSERT INTO gold_transactions (gold) VALUES (:gold)"),
-                    {"gold": current_gold},
-                )      
+                gold_message = f"Subtracted {total_barrel_cost} gold for purchasing {barrel.quantity} of {barrel.sku}."
 
+                # Inserting a new row with gold change into gold_transactions
+                connection.execute(sqlalchemy.text("INSERT INTO gold_transactions (gold, message) VALUES (:gold, :message)"),
+                    {"gold": -total_barrel_cost, "message": gold_message},
+                )
                 print(
                     f"purchased {barrel.quantity} of {barrel.sku}. remaining gold: {current_gold}"
                 )
@@ -68,7 +68,6 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                 print(
                     f"not enough gold for {barrel.sku}. needed: {total_barrel_cost}, available: {current_gold}"
                 )
-
     print(f"barrels delivered: {barrels_delivered}, order_id: {order_id}")
     return "OK"
 
@@ -78,15 +77,15 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     purchase_plan = []
 
     with db.engine.begin() as connection:
-        # Getting current ml levels and latest gold amount
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM ml")).scalar()
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM ml")).scalar()
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM ml")).scalar()
-        current_dark_ml = connection.execute(sqlalchemy.text("SELECT num_dark_ml FROM ml")).scalar()
-        current_gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_transactions ORDER BY id DESC LIMIT 1")).scalar()
+        # Selecting ml levels and gold amount as a sum of all rows
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar() or 0
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar() or 0
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar() or 0
+        current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar() or 0
+        current_gold = connection.execute(sqlalchemy.text("SELECT SUM(gold) FROM gold_transactions")).scalar() or 0
 
-        print(f"Current ml levels: Red={current_red_ml}, Green={current_green_ml}, Blue={current_blue_ml}, Dark={current_dark_ml}")
-        print(f"Current gold: {current_gold}")
+        print(f"current ml levels: red={current_red_ml}, green={current_green_ml}, blue={current_blue_ml}, dark={current_dark_ml}")
+        print(f"current gold: {current_gold}")
 
         priority_order = [
             (current_red_ml, [1, 0, 0, 0]), 
@@ -101,10 +100,9 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             for barrel in wholesale_catalog:
                 if barrel.potion_type == potion_type:
                     needs_more_ml = ml_level < 200
+                    purchased_quantity = 0  
 
                     if needs_more_ml:
-                        purchased_quantity = 0
-
                         for _ in range(barrel.quantity):
                             if current_gold >= barrel.price:
                                 purchased_quantity += 1
@@ -119,9 +117,9 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                                 elif potion_type == [0, 0, 0, 1]:  
                                     current_dark_ml += barrel.ml_per_barrel
 
-                                print(f"Purchased one {barrel.sku}, remaining gold: {current_gold}")
+                                print(f"purchased one {barrel.sku}, remaining gold: {current_gold}")
                             else:
-                                print(f"Not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
+                                print(f"not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
                                 break  
 
                     if purchased_quantity > 0:

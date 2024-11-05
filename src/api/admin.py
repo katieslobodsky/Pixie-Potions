@@ -25,11 +25,14 @@ def reset():
         # adding a new row of gold set to the initial state of 100
         connection.execute(sqlalchemy.text("INSERT INTO gold_transactions (gold) VALUES (:gold)"), {"gold": 100})
 
-        # setting all ml to 0
-        connection.execute(sqlalchemy.text("UPDATE ml SET num_green_ml = 0, num_red_ml = 0, num_blue_ml = 0, num_dark_ml = 0"))
+        # deleting ml rows
+        connection.execute(sqlalchemy.text("DELETE FROM ml"))
+
+        #inserting a new row setting ml to 0
+        connection.execute(sqlalchemy.text("INSERT INTO ml (num_red_ml, num_green_ml, num_blue_ml, num_dark_ml) VALUES (0, 0, 0, 0)"))
 
         # resetting potions
-        connection.execute(sqlalchemy.text("UPDATE custom_potions SET inventory = 0"))
+        connection.execute(sqlalchemy.text("UPDATE potions SET inventory = 0"))
 
         # deleting all carts
         connection.execute(sqlalchemy.text("DELETE FROM carts"))
