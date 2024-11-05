@@ -32,7 +32,7 @@ def reset():
         connection.execute(sqlalchemy.text("INSERT INTO ml (num_red_ml, num_green_ml, num_blue_ml, num_dark_ml) VALUES (0, 0, 0, 0)"))
 
         # resetting potions
-        connection.execute(sqlalchemy.text("UPDATE potions SET inventory = 0"))
+        connection.execute(sqlalchemy.text("DELETE FROM potions_ledger"))
 
         # deleting all carts
         connection.execute(sqlalchemy.text("DELETE FROM carts"))
