@@ -113,7 +113,7 @@ def create_cart(new_cart: Customer):
         
         cart_id = result.cart_id
 
-    return {"cart_id": cart_id, "message": f"Cart created for {new_cart.customer_name}"}
+    return {"cart_id": cart_id}
 
 
 class CartItem(BaseModel):
@@ -135,7 +135,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
             "quantity": cart_item.quantity
         })
 
-    return {"message": f"Added {cart_item.quantity} of {item_sku} to cart {cart_id}"}
+    return {"message": f"added {cart_item.quantity} of {item_sku} to cart {cart_id}"}
 
 
 class CartCheckout(BaseModel):
