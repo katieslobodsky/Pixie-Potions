@@ -219,7 +219,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
         # Inserting a row for change in gold after selling a potion
         gold_change = total_cost
-        gold_message = f"Added {gold_change} gold for selling {total_potions_bought} potions of {potion_name} (SKU: {potion_sku})"
+        gold_message = f"added {gold_change} gold for selling {total_potions_bought} potions of {potion_name} (SKU: {potion_sku})"
 
         connection.execute(sqlalchemy.text("""
             INSERT INTO gold_transactions (gold, message) VALUES (:gold_change, :message)

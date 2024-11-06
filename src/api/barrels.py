@@ -55,7 +55,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                         {"change": ml_change, "message": ml_message},
                     )
 
-                gold_message = f"Subtracted {total_barrel_cost} gold for purchasing {barrel.quantity} of {barrel.sku}."
+                gold_message = f"subtracted {total_barrel_cost} gold for purchasing {barrel.quantity} of {barrel.sku}."
 
                 # Inserting a new row with gold change into gold_transactions
                 connection.execute(sqlalchemy.text("INSERT INTO gold_transactions (gold, message) VALUES (:gold, :message)"),
