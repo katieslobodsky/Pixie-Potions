@@ -182,7 +182,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                     "error": f"Not enough stock for potion {potion_sku}. Requested: {potion_quantity}, available: {potion_inventory}"
                 }
             
-            message = f"Sold {potion_quantity} potions of {potion_name} (SKU: {potion_sku})"
+            message = f"sold {potion_quantity} potions of {potion_name} (SKU: {potion_sku})"
 
             # Inserting a new row in potions_ledger with all potion details
             quantity_change = -potion_quantity
