@@ -16,8 +16,8 @@ def get_catalog():
         available_potions = connection.execute(sqlalchemy.text("""
             SELECT potion_id, potion_name, red_percent, green_percent, blue_percent, dark_percent, SUM(quantity) AS total_quantity, price
             FROM potions_ledger
-            WHERE quantity > 0
             GROUP BY potion_id, potion_name, red_percent, green_percent, blue_percent, dark_percent, price
+            HAVING SUM(quantity) > 0
         """)).fetchall()
 
     for potion in available_potions:

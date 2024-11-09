@@ -160,6 +160,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 FROM potions_ledger 
                 WHERE potion_id = :potion_id
             """), {"potion_id": potion_id}).scalar() or 0
+            print(f"potion inventory: {potion_inventory}")
+            print(f"potion quantity: {potion_quantity}")
 
             potion_details = connection.execute(sqlalchemy.text("""
                 SELECT price, red_percent, green_percent, blue_percent, dark_percent, potion_name 
@@ -168,7 +170,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             """), {"potion_id": potion_id}).fetchone()
 
             if not potion_details:
-                return {"error": f"Potion {potion_sku} not found"}
+                return {"error": f"potion {potion_sku} not found"}
 
             potion_cost = potion_details.price
             red_percent = potion_details.red_percent
@@ -179,7 +181,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
             if potion_inventory < potion_quantity:
                 return {
-                    "error": f"Not enough stock for potion {potion_sku}. Requested: {potion_quantity}, available: {potion_inventory}"
+                    "error": f"not enough stock for {potion_sku}. requested: {potion_quantity}, available: {potion_inventory}"
                 }
             
             message = f"sold {potion_quantity} potions of {potion_name} (SKU: {potion_sku})"
