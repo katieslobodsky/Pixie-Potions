@@ -160,7 +160,7 @@ def get_bottle_plan():
                 max_quantity = 0
 
             # Accounting for potion capacity
-            max_quantity = min(max_quantity, max_potion_limit - current_quantity)
+            max_quantity = min(max_quantity, max_potion_limit - quantity)
 
             if max_quantity > 0:
                 bottle_plan.append({
