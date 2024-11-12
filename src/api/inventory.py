@@ -87,6 +87,18 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
             "message": f"Subtracted {total_cost} gold for purchasing capacity: {capacity_purchase.potion_capacity} potion capacity and {capacity_purchase.ml_capacity} ml capacity"
         })
 
+        # updating capacity table
+        connection.execute(sqlalchemy.text("""
+            INSERT INTO capacity (potion_capacity, ml_capacity)
+            SELECT 
+                COALESCE(MAX(potion_capacity), 0) + :potion_capacity,
+                COALESCE(MAX(ml_capacity), 0) + :ml_capacity
+            FROM capacity
+        """), {
+            "potion_capacity": capacity_purchase.potion_capacity,
+            "ml_capacity": capacity_purchase.ml_capacity
+        })
+
     return {
         "status": "success",
         "message": "Capacity purchase delivered successfully.",
