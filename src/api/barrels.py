@@ -83,9 +83,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar() or 0
         current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar() or 0
         current_gold = connection.execute(sqlalchemy.text("SELECT SUM(gold) FROM gold_transactions")).scalar() or 0
-
-        print(f"current ml levels: red={current_red_ml}, green={current_green_ml}, blue={current_blue_ml}, dark={current_dark_ml}")
-        print(f"current gold: {current_gold}")
+        ml_capacity = connection.execute(sqlalchemy.text("SELECT COALESCE(MAX(ml_capacity), 1) FROM capacity")).scalar() or 1
+        
+        # Calculating max ml storage based on ml_capacity
+        max_ml = ml_capacity * 10000
+        print(f"ML capacity: {ml_capacity}, Max ML storage: {max_ml}")
 
         priority_order = [
             (current_red_ml, [1, 0, 0, 0]), 
@@ -93,8 +95,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             (current_blue_ml, [0, 0, 1, 0]),  
             (current_dark_ml, [0, 0, 0, 1]), 
         ]
-        
-        priority_order.sort(key=lambda x: x[0])  
+        priority_order.sort(key=lambda x: x[0])
 
         for ml_level, potion_type in priority_order:
             for barrel in wholesale_catalog:
@@ -105,21 +106,27 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     if needs_more_ml:
                         for _ in range(barrel.quantity):
                             if current_gold >= barrel.price:
-                                purchased_quantity += 1
-                                current_gold -= barrel.price
+                                expected_ml = ml_level + barrel.ml_per_barrel
+                                if expected_ml <= max_ml:
+                                    purchased_quantity += 1
+                                    current_gold -= barrel.price
+                                    ml_level += barrel.ml_per_barrel
 
-                                if potion_type == [1, 0, 0, 0]:  
-                                    current_red_ml += barrel.ml_per_barrel
-                                elif potion_type == [0, 1, 0, 0]:  
-                                    current_green_ml += barrel.ml_per_barrel
-                                elif potion_type == [0, 0, 1, 0]:  
-                                    current_blue_ml += barrel.ml_per_barrel
-                                elif potion_type == [0, 0, 0, 1]:  
-                                    current_dark_ml += barrel.ml_per_barrel
+                                    if potion_type == [1, 0, 0, 0]:  
+                                        current_red_ml = ml_level
+                                    elif potion_type == [0, 1, 0, 0]:  
+                                        current_green_ml = ml_level
+                                    elif potion_type == [0, 0, 1, 0]:  
+                                        current_blue_ml = ml_level
+                                    elif potion_type == [0, 0, 0, 1]:  
+                                        current_dark_ml = ml_level
 
-                                print(f"purchased one {barrel.sku}, remaining gold: {current_gold}")
+                                    print(f"Purchased one {barrel.sku}, remaining gold: {current_gold}")
+                                else:
+                                    print(f"Not enough ml capacity to add {barrel.sku}.")
+                                    break
                             else:
-                                print(f"not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
+                                print(f"Not enough gold to purchase {barrel.sku}. Required: {barrel.price}, available: {current_gold}")
                                 break  
 
                     if purchased_quantity > 0:
@@ -133,6 +140,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
     print(f"Wholesale purchase plan: {purchase_plan}")
     return purchase_plan
+
 
 
 
