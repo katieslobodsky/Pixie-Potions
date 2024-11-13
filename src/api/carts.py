@@ -4,6 +4,9 @@ from src import database as db
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from src.api import auth
+from datetime import datetime
+from typing import Optional
+
 #from enum import Enum
 #from typing import Optional
 #from sqlalchemy.orm import Session
@@ -16,19 +19,20 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
-
 @router.get("/search/", tags=["search"])
 def search_orders(
     customer_name: str = "",
     potion_sku: str = "",
-    #search_page: Optional[str] = None,
     sort_col: str = "timestamp",  
     sort_order: str = "desc", 
 ):
-
     max_results = 5
 
-    query = "SELECT item_id AS line_item_id, item_sku, customer_name, item_total AS line_item_total, carts.created_at AS timestamp FROM cart_items JOIN carts ON cart_items.cart_id = carts.cart_id"
+    query = """
+    SELECT item_id AS line_item_id, item_sku, customer_name, item_total AS line_item_total, carts.created_at AS timestamp 
+    FROM cart_items 
+    JOIN carts ON cart_items.cart_id = carts.cart_id
+    """
     filters = []
     params = {}
 
@@ -53,12 +57,13 @@ def search_orders(
 
     results = []
     for row in result:
+        timestamp = row.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
         results.append({
             "line_item_id": row.line_item_id,
             "item_sku": row.item_sku,
             "customer_name": row.customer_name,
             "line_item_total": row.line_item_total,
-            "timestamp": row.timestamp.isoformat() + "Z",
+            "timestamp": timestamp,
         })
 
     return {
