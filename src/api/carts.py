@@ -7,12 +7,6 @@ from src.api import auth
 from datetime import datetime
 from typing import Optional
 
-#from enum import Enum
-#from typing import Optional
-#from sqlalchemy.orm import Session
-#from datetime import datetime
-#from fastapi import HTTPException
-
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
@@ -33,18 +27,18 @@ def search_orders(
     FROM cart_items 
     JOIN carts ON cart_items.cart_id = carts.cart_id
     """
-    filters = []
+    filter = []
     params = {}
 
     if customer_name:
-        filters.append("LOWER(carts.customer_name) LIKE :customer_name")
+        filter.append("LOWER(carts.customer_name) LIKE :customer_name")
         params["customer_name"] = f"%{customer_name.lower()}%"
     if potion_sku:
-        filters.append("LOWER(cart_items.item_sku) LIKE :potion_sku")
+        filter.append("LOWER(cart_items.item_sku) LIKE :potion_sku")
         params["potion_sku"] = f"%{potion_sku.lower()}%"
 
-    if filters:
-        query += " WHERE " + " AND ".join(filters)
+    if filter:
+        query += " WHERE " + " AND ".join(filter)
 
     query += f" ORDER BY {sort_col} {sort_order} LIMIT :max_results"
     params["max_results"] = max_results
