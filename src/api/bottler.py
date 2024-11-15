@@ -115,16 +115,15 @@ def get_bottle_plan():
     bottle_plan = []
 
     with db.engine.begin() as connection:
-
         # Selecting potion capacity and calculating max potions that can be in inventory
         potion_capacity = connection.execute(sqlalchemy.text("SELECT potion_capacity FROM capacity")).scalar() or 1
         max_potion_limit = potion_capacity * 50
 
         # Selecting ml levels as a sum of all rows
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar()
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar()
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar()
-        current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar()
+        current_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar() or 0
+        current_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar() or 0
+        current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar() or 0
+        current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar() or 0
 
         potions = connection.execute(sqlalchemy.text("SELECT red_percent, green_percent, blue_percent, dark_percent FROM potions")).fetchall()
 
@@ -132,7 +131,7 @@ def get_bottle_plan():
             red_percent, green_percent, blue_percent, dark_percent = potion
 
             # Selecting current quantity of this potion type from potions_ledger
-            quantity = connection.execute(sqlalchemy.text("""
+            current_quantity = connection.execute(sqlalchemy.text("""
                 SELECT COALESCE(SUM(quantity), 0) FROM potions_ledger
                 WHERE red_percent = :red_percent AND green_percent = :green_percent
                   AND blue_percent = :blue_percent AND dark_percent = :dark_percent
@@ -143,7 +142,7 @@ def get_bottle_plan():
                 "dark_percent": dark_percent
             }).scalar()
 
-            if quantity >= potion_capacity:
+            if current_quantity >= max_potion_limit:
                 continue
 
             ml_requirements = [
@@ -155,12 +154,12 @@ def get_bottle_plan():
             ml_requirements = [(ml, percent) for ml, percent in ml_requirements if percent > 0]
 
             if ml_requirements:
-                max_quantity = min(ml // percent for ml, percent in ml_requirements)
+                max_ml = min(ml // percent for ml, percent in ml_requirements)
             else:
-                max_quantity = 0
+                max_ml = float("inf")
 
             # Accounting for potion capacity
-            max_quantity = min(max_quantity, max_potion_limit - quantity)
+            max_quantity = min(max_ml, max_potion_limit - current_quantity)
 
             if max_quantity > 0:
                 bottle_plan.append({
@@ -168,7 +167,6 @@ def get_bottle_plan():
                     "quantity": max_quantity
                 })
 
-                # Deduct the used ml from the current ml stock
                 current_red_ml -= red_percent * max_quantity
                 current_green_ml -= green_percent * max_quantity
                 current_blue_ml -= blue_percent * max_quantity
