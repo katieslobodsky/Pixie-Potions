@@ -120,12 +120,17 @@ def get_bottle_plan():
         max_potion_limit = potion_capacity * 50
 
         # Selecting ml levels as a sum of all rows
-        current_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar() or 0
-        current_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar() or 0
-        current_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar() or 0
-        current_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar() or 0
+        total_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_red_ml) FROM ml")).scalar() or 0
+        total_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_green_ml) FROM ml")).scalar() or 0
+        total_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_blue_ml) FROM ml")).scalar() or 0
+        total_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(num_dark_ml) FROM ml")).scalar() or 0
 
         potions = connection.execute(sqlalchemy.text("SELECT red_percent, green_percent, blue_percent, dark_percent FROM potions")).fetchall()
+
+        current_red_ml = total_red_ml
+        current_green_ml = total_green_ml
+        current_blue_ml = total_blue_ml
+        current_dark_ml = total_dark_ml
 
         for potion in potions:
             red_percent, green_percent, blue_percent, dark_percent = potion
@@ -162,6 +167,10 @@ def get_bottle_plan():
             max_quantity = min(max_ml, max_potion_limit - current_quantity)
 
             if max_quantity > 0:
+                potential_total = sum(item['quantity'] for item in bottle_plan) + max_quantity
+                if potential_total > max_potion_limit:
+                    continue
+
                 bottle_plan.append({
                     "potion_type": [red_percent, green_percent, blue_percent, dark_percent],
                     "quantity": max_quantity
@@ -177,5 +186,6 @@ def get_bottle_plan():
 
 if __name__ == "__main__":
     print(get_bottle_plan())
+
 
 
